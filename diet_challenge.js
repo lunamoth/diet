@@ -1406,58 +1406,70 @@
         const bmi = parseFloat((lastRec.weight / (hMeter * hMeter)).toFixed(1));
         const fat = lastRec.fat || 0;
 
-        const createGauge = (id, val, max, ranges, chartKey) => {
-            const ctx = document.getElementById(id).getContext('2d');
-            const config = {
-                type: 'doughnut',
-                data: {
-                    datasets: [{
-                        data: [...ranges.map(r => r.size), 0],
-                        backgroundColor: [...ranges.map(r => r.color), 'transparent'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    circumference: 180,
-                    rotation: 270,
-                    cutout: '80%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: false }
-                    },
-                    aspectRatio: 1.5
-                },
-                plugins: [{
-                    id: 'gaugeNeedle',
-                    afterDraw: (chart) => {
-                        const { ctx, chartArea: { width, height } } = chart;
-                        ctx.save();
-                        const needleValue = val;
-                        const total = ranges.reduce((a, b) => a + b.size, 0);
-                        const angle = Math.PI + (Math.PI * (needleValue / total));
-                        const cx = width / 2;
-                        const cy = height - 10;
+		const createGauge = (id, val, max, ranges, chartKey) => {
+			const ctx = document.getElementById(id).getContext('2d');
+			const config = {
+				type: 'doughnut',
+				data: {
+					datasets: [{
+						data: [...ranges.map(r => r.size), 0],
+						backgroundColor: [...ranges.map(r => r.color), 'transparent'],
+						borderWidth: 0
+					}]
+				},
+				options: {
+					circumference: 180,
+					rotation: 270,
+					cutout: '75%',
+					responsive: true,
+					maintainAspectRatio: false,
+					layout: { padding: { bottom: 10 } },
+					plugins: {
+						legend: { display: false },
+						tooltip: { enabled: false }
+					}
+				},
+				plugins: [{
+					id: 'gaugeNeedle',
+					afterDraw: (chart) => {
+						const { ctx, chartArea: { width, height } } = chart;
+						const meta = chart.getDatasetMeta(0);
+						if (!meta.data[0]) return; // 데이터가 없을 경우 방어 코드
 
-                        ctx.translate(cx, cy);
-                        ctx.rotate(angle);
-                        ctx.beginPath();
-                        ctx.moveTo(0, -3);
-                        ctx.lineTo(height * 0.8, 0);
-                        ctx.lineTo(0, 3);
-                        ctx.fillStyle = colors.text;
-                        ctx.fill();
-                        ctx.restore();
+						const outerRadius = meta.data[0].outerRadius;
+						const centerX = meta.data[0].x;
+						const centerY = meta.data[0].y;
 
-                        ctx.font = 'bold 20px sans-serif';
-                        ctx.fillStyle = colors.text;
-                        ctx.textAlign = 'center';
-                        ctx.fillText(val, cx, cy - 25);
-                    }
-                }]
-            };
-            updateChartHelper(chartKey, ctx, config);
-        };
+						ctx.save();
+						const total = ranges.reduce((a, b) => a + b.size, 0);
+						const angle = Math.PI + (Math.PI * (val / total));
 
+						// 1. 바늘 그리기 (삼각형 형태만 남김)
+						ctx.translate(centerX, centerY);
+						ctx.rotate(angle);
+						ctx.beginPath();
+						// 중심점(0,0)에서 시작하는 날카로운 삼각형
+						ctx.moveTo(0, -(outerRadius * 0.03)); 
+						ctx.lineTo(outerRadius * 0.9, 0); 
+						ctx.lineTo(0, (outerRadius * 0.03));
+						ctx.closePath();
+						ctx.fillStyle = colors.text;
+						ctx.fill();
+						ctx.restore();
+
+						// 2. 숫자 텍스트 표시
+						const fontSize = Math.round(outerRadius * 0.22);
+						ctx.font = `bold ${fontSize}px sans-serif`;
+						ctx.fillStyle = colors.text;
+						ctx.textAlign = 'center';
+						ctx.textBaseline = 'middle';
+						ctx.fillText(val, centerX, centerY - (outerRadius * 0.2));
+					}
+				}]
+			};
+			updateChartHelper(chartKey, ctx, config);
+		};
+		
         // BMI 게이지 (한국 기준: ~18.5, ~23, ~25, ~30+)
         createGauge('gaugeBmiChart', bmi, 40, [
             { size: 18.5, color: '#90caf9' }, // 저체중

@@ -305,6 +305,10 @@
         @media (max-width: 600px) {
             .card.expanded-card { width: 95vw; height: 80vh; }
         }
+
+    .expanded-card .gauge-container { height: 70% !important; align-items: center !important; }
+    .expanded-card .gauge-wrapper { max-width: 45% !important; }
+	
     </style>
 </head>
 <body>
@@ -600,16 +604,16 @@
             <p style="font-size: 0.75rem; text-align: center; color: var(--text-light); margin-top:5px;">현재 달과 지난달의 기록을 일자별로 겹쳐서 비교합니다.</p>
         </div>
         <!-- 새로운 그래프 2: 신호등 게이지 -->
-        <div class="card">
-            <h3>🚦 신호등 게이지 (BMI & 체지방) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
-            <div style="display: flex; gap: 10px; height: 180px;">
-                <div style="flex: 1; position: relative;"><canvas id="gaugeBmiChart"></canvas></div>
-                <div style="flex: 1; position: relative;"><canvas id="gaugeFatChart"></canvas></div>
-            </div>
-            <div style="display: flex; justify-content: space-around; font-size: 0.8rem; font-weight: bold; margin-top: -10px;">
-                <span>BMI</span> <span>체지방률</span>
-            </div>
-        </div>
+		<div class="card">
+			<h3>🚦 신호등 게이지 (BMI & 체지방) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+			<div class="gauge-container" style="display: flex; gap: 10px; height: 130px; justify-content: center; align-items: flex-end; overflow: hidden; transition: height 0.3s;">
+				<div class="gauge-wrapper" style="flex: 1; max-width: 150px; position: relative; height: 100%;"><canvas id="gaugeBmiChart"></canvas></div>
+				<div class="gauge-wrapper" style="flex: 1; max-width: 150px; position: relative; height: 100%;"><canvas id="gaugeFatChart"></canvas></div>
+			</div>
+			<div style="display: flex; justify-content: space-around; font-size: 0.85rem; font-weight: bold; margin-top: 5px; max-width: 320px; margin-left: auto; margin-right: auto; color: var(--text-light);">
+				<span>BMI</span> <span>체지방률</span>
+			</div>
+		</div>
         <div class="card">
             <h3>📉 누적 감량 추이 (Area) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
             <div class="mini-chart-container">
