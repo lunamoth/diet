@@ -1,0 +1,1964 @@
+(function() {
+    // --- 0. 설정 및 상수 (CONFIG) ---
+    const CONFIG = {
+        BMI: { UNDER: 18.5, OVER: 23, OBESE: 25 }, // 한국인 기준 (대한비만학회)
+        LIMITS: { MIN_WEIGHT: 30, MAX_WEIGHT: 300, MIN_FAT: 1, MAX_FAT: 70 },
+        COLORS: {
+            GAIN: '#ffcdd2', LOSS: '#bbdefb',
+            WEEKEND: '#F44336', WEEKDAY: '#4CAF50'
+        }
+    };
+
+    // --- 0.1 유틸리티 (DateUtil, MathUtil, DomUtil) ---
+    const DateUtil = {
+        parse: (str) => {
+            if (!str) return null;
+            const parts = str.split('-');
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        },
+        format: (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        },
+        daysBetween: (d1, d2) => (d2 - d1) / (1000 * 3600 * 24),
+        addDays: (dateStr, days) => {
+            const d = DateUtil.parse(dateStr);
+            d.setDate(d.getDate() + days);
+            return DateUtil.format(d);
+        },
+        isFuture: (dateStr) => {
+            const inputDate = DateUtil.parse(dateStr);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return inputDate > today;
+        }
+    };
+
+    const MathUtil = {
+        round: (num, decimals = 1) => {
+            const factor = Math.pow(10, decimals);
+            return Math.round((num + Number.EPSILON) * factor) / factor;
+        },
+        diff: (a, b) => MathUtil.round(a - b),
+        clamp: (num, min, max) => Math.min(Math.max(num, min), max)
+    };
+
+    const DomUtil = {
+        escapeHtml: (text) => {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        },
+        getChartColors: () => {
+            const styles = getComputedStyle(document.body);
+            return {
+                grid: styles.getPropertyValue('--chart-grid').trim(),
+                text: styles.getPropertyValue('--chart-text').trim(),
+                primary: styles.getPropertyValue('--primary').trim(),
+                secondary: styles.getPropertyValue('--secondary').trim(),
+                danger: styles.getPropertyValue('--danger').trim()
+            };
+        }
+    };
+
+    const debounce = (func, delay) => {
+        let timer;
+        return (...args) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => func(...args), delay);
+        };
+    };
+
+    // --- 1. 상태 및 DOM 관리 ---
+    const App = {
+        STORAGE_KEY: 'diet_pro_records',
+        SETTINGS_KEY: 'diet_pro_settings',
+        FILTER_KEY: 'diet_pro_filter_mode',
+        records: [],
+		settings: { height: 179, startWeight: 78.5, goal1: 70, intake: 1459 }, 
+        chartFilterMode: 'ALL',
+        customStart: null,
+        customEnd: null,
+        charts: { main: null, dow: null, hist: null, cumul: null, monthly: null, fat: null, scatter: null, weekend: null, bodyComp: null, boxPlot: null, roc: null },
+        el: {},
+        state: {
+            editingDate: null, 
+            statsCache: null, 
+            isDirty: true,     
+            calendarViewDate: new Date() 
+        }
+    };
+
+    // --- 2. 초기화 ---
+    function init() {
+        const ids = [
+            'dateInput', 'weightInput', 'fatInput', 'userHeight', 'startWeight', 'goal1Weight', 'dailyIntake',
+            'settingsPanel', 'badgeGrid', 'csvFileInput', 'resetConfirmInput',
+            'chartStartDate', 'chartEndDate', 'showTrend',
+            'currentWeightDisplay', 'totalLostDisplay', 'percentLostDisplay', 'progressPercent',
+            'remainingWeightDisplay', 'remainingPercentDisplay', 'bmiDisplay', 'predictedDate',
+            'predictionRange', 'dashboardRate7Days', 'dashboardRate30Days', 'streakDisplay', 'successRateDisplay', 'minMaxWeightDisplay',
+            'dailyVolatilityDisplay', 'weeklyAvgDisplay', 'monthCompareDisplay', 'analysisText',
+            'lbmDisplay', 'lbmiDisplay', 'dDayDisplay', 'estTdeeDisplay', 'estTdeeSubDisplay', 'weeklyEffDisplay', 'shortTrendDisplay', 
+            'waterIndexDisplay', 'netChangeDisplay', 'netChangeSubDisplay', 'consistencyDisplay', 'deficitDisplay', 'ffmiDisplay',
+            'advancedAnalysisList', 'calendarContainer',
+            'progressBarFill', 'progressEmoji', 'progressText', 'labelStart', 'labelGoal',
+            'rate7Days', 'rate30Days', 'weeklyCompareDisplay', 'heatmapGrid', 'chartBackdrop',
+            'monthlyTableBody', 'weeklyTableBody', 'milestoneTableBody', 'historyList',
+            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 
+            'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'recordBtn'
+        ];
+        ids.forEach(id => App.el[id] = document.getElementById(id));
+        
+        App.el.dateInput.valueAsDate = new Date();
+        
+        App.records = JSON.parse(localStorage.getItem(App.STORAGE_KEY)) || [];
+        const savedSettings = JSON.parse(localStorage.getItem(App.SETTINGS_KEY));
+        if (savedSettings) App.settings = savedSettings;
+
+        App.chartFilterMode = localStorage.getItem(App.FILTER_KEY) || 'ALL';
+        if(localStorage.getItem('diet_pro_dark_mode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        App.el.userHeight.value = App.settings.height;
+        App.el.startWeight.value = App.settings.startWeight;
+        App.el.goal1Weight.value = App.settings.goal1;
+        App.el.dailyIntake.value = App.settings.intake || 1862;
+
+        if(App.records.length > 0) {
+            App.state.calendarViewDate = DateUtil.parse(App.records[App.records.length-1].date);
+        }
+
+        // 이벤트 리스너 등록
+        App.el.heatmapGrid.addEventListener('click', (e) => {
+             if(e.target.classList.contains('heatmap-cell') && e.target.title) {
+                 showToast(e.target.title);
+             }
+        });
+        
+        // 입력 편의성: Enter 키 처리
+        const handleEnter = (e) => { if(e.key === 'Enter') App.addRecord(); };
+        App.el.weightInput.addEventListener('keyup', handleEnter);
+        App.el.fatInput.addEventListener('keyup', handleEnter);
+
+        // 이벤트 위임 (히스토리 테이블)
+        App.el.historyList.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const action = btn.dataset.action;
+            const date = btn.dataset.date;
+            if (action === 'edit') editRecord(date);
+            else if (action === 'delete') deleteRecord(date);
+        });
+
+        updateFilterButtons();
+        updateUI();
+    }
+
+    // --- 3. 기본 기능 (디바운스 적용) ---
+    const debouncedSaveRecords = debounce(() => {
+        localStorage.setItem(App.STORAGE_KEY, JSON.stringify(App.records));
+    }, 500);
+
+    const debouncedSaveSettings = debounce(() => {
+        localStorage.setItem(App.SETTINGS_KEY, JSON.stringify(App.settings));
+    }, 500);
+
+    function showToast(message) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    function toggleSettings() {
+        const panel = App.el.settingsPanel;
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleBadges() {
+        const grid = App.el.badgeGrid;
+        grid.style.display = grid.style.display === 'grid' ? 'none' : 'grid';
+    }
+
+    function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('diet_pro_dark_mode', document.body.classList.contains('dark-mode'));
+        // 차트 색상 완전 갱신을 위해 파괴 후 재생성
+        Object.values(App.charts).forEach(chart => { if(chart) chart.destroy(); });
+        App.charts = { main: null, dow: null, hist: null, cumul: null, monthly: null, fat: null, scatter: null, weekend: null, bodyComp: null, boxPlot: null, roc: null };
+        updateUI(); 
+    }
+
+    function saveSettings() {
+        App.settings.height = parseFloat(App.el.userHeight.value);
+        App.settings.startWeight = parseFloat(App.el.startWeight.value);
+        App.settings.goal1 = parseFloat(App.el.goal1Weight.value);
+        App.settings.intake = parseFloat(App.el.dailyIntake.value) || 2000;
+        
+        App.state.isDirty = true;
+        debouncedSaveSettings();
+        toggleSettings();
+        updateUI();
+        showToast('설정이 저장되었습니다.');
+    }
+
+    function addRecord() {
+        const date = App.el.dateInput.value;
+        const weight = parseFloat(App.el.weightInput.value);
+        const fat = parseFloat(App.el.fatInput.value);
+
+        if (!date) return showToast('날짜를 입력해주세요.');
+        // 미래 날짜 방지
+        if (DateUtil.isFuture(date)) return showToast('미래 날짜는 입력할 수 없습니다.');
+        
+        if (isNaN(weight) || weight < CONFIG.LIMITS.MIN_WEIGHT || weight > CONFIG.LIMITS.MAX_WEIGHT) {
+            return showToast(`유효한 체중을 입력해주세요 (${CONFIG.LIMITS.MIN_WEIGHT}~${CONFIG.LIMITS.MAX_WEIGHT}kg).`);
+        }
+        if (!isNaN(fat) && (fat < CONFIG.LIMITS.MIN_FAT || fat > CONFIG.LIMITS.MAX_FAT)) {
+            return showToast(`유효한 체지방률을 입력해주세요 (${CONFIG.LIMITS.MIN_FAT}~${CONFIG.LIMITS.MAX_FAT}%).`);
+        }
+
+        const record = { date, weight: MathUtil.round(weight) };
+        if (!isNaN(fat)) record.fat = MathUtil.round(fat);
+
+        // 날짜 중복 및 덮어쓰기 로직 강화
+        const existingIndex = App.records.findIndex(r => r.date === date);
+
+        if (App.state.editingDate) {
+            // 수정 모드
+            if (App.state.editingDate !== date) {
+                // 날짜를 변경한 경우
+                if (existingIndex >= 0) {
+                    if (!confirm(`${date}에 이미 기록이 있습니다. 덮어쓰시겠습니까?`)) return;
+                    App.records[existingIndex] = record; // 기존 날짜 덮어쓰기
+                    // 원래 날짜의 기록 삭제
+                    App.records = App.records.filter(r => r.date !== App.state.editingDate);
+                } else {
+                    // 변경한 날짜에 기록이 없으면 추가하고 기존 날짜 삭제
+                    App.records = App.records.filter(r => r.date !== App.state.editingDate);
+                    App.records.push(record);
+                }
+            } else {
+                // 날짜 변경 없음, 해당 인덱스 업데이트
+                App.records[existingIndex] = record;
+            }
+        } else {
+            // 신규 입력 모드
+            if (existingIndex >= 0) {
+                if(!confirm("해당 날짜에 이미 기록이 있습니다. 덮어쓰시겠습니까?")) return;
+                App.records[existingIndex] = record;
+            } else {
+                App.records.push(record);
+            }
+        }
+
+        App.records.sort((a, b) => new Date(a.date) - new Date(b.date));
+        App.state.isDirty = true;
+        debouncedSaveRecords();
+        
+        resetForm(date); // 입력한 날짜를 전달하여 다음 날 자동 설정
+        updateUI();
+        showToast('기록이 저장되었습니다.');
+    }
+
+    function resetForm(lastDateStr = null) {
+        if (lastDateStr) {
+            // 편의성: 입력 후 다음 날짜로 자동 세팅
+            App.el.dateInput.value = DateUtil.addDays(lastDateStr, 1);
+        } else {
+            App.el.dateInput.valueAsDate = new Date();
+        }
+        App.el.weightInput.value = '';
+        App.el.fatInput.value = '';
+        App.state.editingDate = null;
+        App.el.recordBtn.innerText = '기록하기 📝';
+        App.el.recordBtn.classList.remove('editing-mode');
+        App.el.weightInput.focus();
+    }
+
+    function deleteRecord(date) {
+        if(confirm('이 날짜의 기록을 삭제하시겠습니까?')) {
+            App.records = App.records.filter(r => r.date !== date);
+            App.state.isDirty = true;
+            debouncedSaveRecords();
+            updateUI();
+            showToast('삭제되었습니다.');
+        }
+    }
+
+    function editRecord(date) {
+        const record = App.records.find(r => r.date === date);
+        if (record) {
+            App.el.dateInput.value = record.date;
+            App.el.weightInput.value = record.weight;
+            if (record.fat) App.el.fatInput.value = record.fat;
+            else App.el.fatInput.value = '';
+            
+            App.state.editingDate = date; 
+            App.el.recordBtn.innerText = '수정 완료 ✔️';
+            App.el.recordBtn.classList.add('editing-mode');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast(`${date} 기록을 수정합니다.`);
+            
+            const inputGroup = document.querySelector('.input-group');
+            inputGroup.style.transition = "background-color 0.5s";
+            inputGroup.style.backgroundColor = "rgba(76, 175, 80, 0.1)";
+            setTimeout(() => inputGroup.style.backgroundColor = "transparent", 1000);
+        }
+    }
+
+    function safeResetData() {
+        if (App.el.resetConfirmInput.value === "초기화") {
+            localStorage.removeItem(App.STORAGE_KEY);
+            App.records = [];
+            App.state.isDirty = true;
+            App.el.resetConfirmInput.value = '';
+            updateUI();
+            showToast('초기화되었습니다.');
+        } else {
+            showToast('"초기화"라고 정확히 입력해주세요.');
+        }
+    }
+
+    function importData() {
+        const file = App.el.csvFileInput.files[0];
+        if (!file) return showToast('파일을 선택해주세요.');
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            
+            if(file.name.endsWith('.json')) {
+                try {
+                    const data = JSON.parse(content);
+                    if(data.records && Array.isArray(data.records)) {
+                        App.records = data.records.filter(r => r.date && !isNaN(r.weight));
+                        if(data.settings) App.settings = data.settings;
+                        App.state.isDirty = true;
+                        debouncedSaveRecords();
+                        debouncedSaveSettings();
+                        updateUI();
+                        showToast('데이터 복원 완료');
+                    } else {
+                        throw new Error('올바르지 않은 JSON 형식');
+                    }
+                } catch(err) {
+                    showToast('JSON 파일 오류: ' + err.message);
+                }
+                return;
+            }
+
+            // CSV 파싱 로직 개선 (쉼표 문제 해결)
+            const lines = content.split('\n');
+            let count = 0;
+            const csvRegex = /(?:^|,)(?:"([^"]*)"|([^",]*))/g;
+            
+            for(let i=0; i<lines.length; i++) {
+                const line = lines[i].trim();
+                if(!line || line.toLowerCase().startsWith('date')) continue; // 헤더 스킵 가능성
+                
+                const matches = [];
+                let match;
+                while ((match = csvRegex.exec(line)) !== null) {
+                     // 따옴표 안에 있는 값(match[1]) 혹은 그냥 값(match[2])
+                     matches.push(match[1] ? match[1] : match[2]);
+                }
+                
+                if(matches.length >= 2) {
+                    const d = matches[0].trim().replace(/['"]/g, ''); 
+                    const w = parseFloat(matches[1]);
+                    
+                    if(d.match(/^\d{4}-\d{2}-\d{2}$/) && !isNaN(w)) {
+                        const rec = { date: d, weight: w };
+                        if(matches[2] && !isNaN(parseFloat(matches[2]))) {
+                            rec.fat = parseFloat(matches[2]);
+                        }
+                        const idx = App.records.findIndex(r => r.date === d);
+                        if(idx >= 0) App.records[idx] = rec;
+                        else App.records.push(rec);
+                        count++;
+                    }
+                }
+                // 정규식 lastIndex 리셋
+                csvRegex.lastIndex = 0;
+            }
+            App.records.sort((a, b) => new Date(a.date) - new Date(b.date));
+            App.state.isDirty = true;
+            debouncedSaveRecords();
+            updateUI();
+            showToast(`${count}건의 데이터(CSV)를 불러왔습니다.`);
+        };
+        reader.readAsText(file);
+    }
+
+    function exportCSV() {
+        if (App.records.length === 0) return showToast('내보낼 데이터가 없습니다.');
+        let csvContent = "\uFEFFDate,Weight,BodyFat\n";
+        App.records.forEach(row => {
+            csvContent += `${row.date},${row.weight},${row.fat || ''}\n`;
+        });
+        downloadFile(csvContent, "diet_records.csv", "text/csv;charset=utf-8");
+    }
+
+    function exportJSON() {
+        const data = {
+            settings: App.settings,
+            records: App.records,
+            exportDate: new Date().toISOString()
+        };
+        downloadFile(JSON.stringify(data, null, 2), "diet_backup.json", "application/json");
+    }
+
+    function downloadFile(content, fileName, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // --- 4. 메인 렌더링 함수 (updateUI - 최적화 적용) ---
+    function updateUI() {
+        if(App.state.isDirty) {
+            App.state.statsCache = analyzeRecords(App.records);
+            App.state.isDirty = false;
+        }
+        const s = App.state.statsCache;
+        
+        renderStats(s);
+        renderNewStats(s); 
+        renderAnalysisText();
+        renderAdvancedText(s); 
+        
+        // 차트 업데이트 (재사용 및 업데이트 방식 개선)
+        const colors = DomUtil.getChartColors();
+        updateMainChart(colors);
+        updateDayOfWeekChart(colors);
+        updateHistogram(colors);
+        updateCumulativeChart(colors);
+        updateMonthlyChangeChart(colors);
+        updateBodyFatChart(colors);
+        updateScatterChart(colors); 
+        updateWeekendChart(colors); 
+        updateBodyCompStackedChart(colors); 
+        updateMonthlyBoxPlotChart(colors); 
+        updateRocChart(colors); 
+
+        // DOM 조작이 무거운 작업들은 requestAnimationFrame으로 분리 가능하나, 
+        // 여기서는 데이터 양이 적으므로 직접 호출 유지
+        renderHeatmap();
+        renderCalendarView(); 
+        renderAllTables();
+        renderBadges(s);
+    }
+
+    // --- 5. 분석 계산 로직 ---
+    function analyzeRecords(records) {
+        if (!records || records.length === 0) return {};
+        
+        const weights = records.map(r => r.weight);
+        const current = weights[weights.length - 1];
+        const min = Math.min(...weights);
+        const max = Math.max(...weights);
+        const lastRec = records[records.length - 1];
+        
+        let maxStreak = 0, curStreak = 0;
+        let successCount = 0;
+        let maxDrop = 0, maxGain = 0;
+
+        if (records.length > 1) {
+            for (let i = 1; i < records.length; i++) {
+                const diff = records[i].weight - records[i-1].weight;
+                if (diff <= 0) curStreak++;
+                else curStreak = 0;
+                if (curStreak > maxStreak) maxStreak = curStreak;
+
+                if (diff < 0) successCount++;
+
+                const dayDiff = DateUtil.daysBetween(new Date(records[i-1].date), new Date(records[i].date));
+                if (dayDiff === 1) {
+                    if (diff < 0 && Math.abs(diff) > maxDrop) maxDrop = Math.abs(diff);
+                    if (diff > 0 && diff > maxGain) maxGain = diff;
+                }
+            }
+        }
+
+        return {
+            current, min, max, maxStreak, lastRec,
+            successRate: records.length > 1 ? Math.round((successCount / (records.length - 1)) * 100) : 0,
+            maxDrop: MathUtil.round(maxDrop), 
+            maxGain: MathUtil.round(maxGain)
+        };
+    }
+
+    // --- 6. 통계 렌더링 ---
+    function renderStats(s) {
+        const currentW = s.current !== undefined ? s.current : App.settings.startWeight;
+        const totalLost = MathUtil.diff(App.settings.startWeight, currentW);
+        
+        App.el.currentWeightDisplay.innerText = currentW.toFixed(1) + 'kg';
+        App.el.totalLostDisplay.innerText = `${totalLost}kg`;
+        App.el.totalLostDisplay.style.color = totalLost > 0 ? 'var(--primary-dark)' : (totalLost < 0 ? 'var(--danger)' : 'var(--text)');
+
+        let pct = 0;
+        const totalGap = App.settings.startWeight - App.settings.goal1;
+        const currentGap = App.settings.startWeight - currentW;
+        if(Math.abs(totalGap) > 0.01) {
+             pct = (currentGap / totalGap) * 100;
+        }
+        
+        // 달성률 클램핑 (0~100)
+        const displayPct = MathUtil.clamp(pct, 0, 100);
+        App.el.progressPercent.innerText = displayPct.toFixed(1) + '%';
+        
+        const remaining = MathUtil.diff(currentW, App.settings.goal1);
+        const remainingDisplay = App.el.remainingWeightDisplay;
+        remainingDisplay.innerText = `${remaining > 0 ? remaining : 0}kg`;
+        remainingDisplay.style.color = remaining <= 0 ? 'var(--secondary-dark)' : 'var(--text)';
+
+        let remainingPct = 0;
+        if(totalGap !== 0) {
+            remainingPct = (remaining / totalGap * 100);
+            if(remainingPct < 0) remainingPct = 0;
+        }
+        App.el.remainingPercentDisplay.innerText = `${remainingPct.toFixed(1)}%`;
+
+        const hMeter = App.settings.height / 100;
+        const bmi = (currentW / (hMeter * hMeter)).toFixed(1);
+        // BMI 기준 상수 사용
+        let bmiLabel = '정상';
+        if(bmi < CONFIG.BMI.UNDER) bmiLabel = '저체중';
+        else if(bmi >= CONFIG.BMI.OVER && bmi < CONFIG.BMI.OBESE) bmiLabel = '과체중';
+        else if(bmi >= CONFIG.BMI.OBESE) bmiLabel = '비만';
+        App.el.bmiDisplay.innerText = `BMI: ${bmi} (${bmiLabel})`;
+
+        const percentLost = ((App.settings.startWeight - currentW) / App.settings.startWeight * 100).toFixed(1);
+        App.el.percentLostDisplay.innerText = `(시작 체중 대비 ${percentLost > 0 ? '-' : '+'}${Math.abs(percentLost)}%)`;
+
+        updateProgressBar(currentW, totalLost, pct, remaining);
+
+        App.el.streakDisplay.innerText = (s.maxStreak || 0) + '일';
+        App.el.successRateDisplay.innerText = (s.successRate || 0) + '%';
+        
+        const pred = calculateScenarios(currentW);
+        App.el.predictedDate.innerText = pred.avg;
+        App.el.predictionRange.innerText = pred.range;
+        
+        App.el.rate7Days.innerText = getRate(7);
+        App.el.rate30Days.innerText = getRate(30);
+        App.el.dashboardRate7Days.innerText = getRate(7);
+        App.el.dashboardRate30Days.innerText = getRate(30);
+        App.el.weeklyCompareDisplay.innerText = getWeeklyComparison();
+
+        App.el.minMaxWeightDisplay.innerHTML = `
+            <span style="color:var(--danger)">${(s.max||0).toFixed(1)}kg</span> / 
+            <span style="color:var(--primary)">${(s.min||0).toFixed(1)}kg</span>
+        `;
+        
+        App.el.dailyVolatilityDisplay.innerHTML = `
+            <span style="color:var(--primary)">▼${(s.maxDrop||0).toFixed(1)}</span> / 
+            <span style="color:var(--danger)">▲${(s.maxGain||0).toFixed(1)}</span>
+        `;
+
+        App.el.weeklyAvgDisplay.innerText = calculateWeeklyAvg() + 'kg';
+        
+        const monComp = calculateMonthlyComparison();
+        App.el.monthCompareDisplay.innerText = monComp;
+        App.el.monthCompareDisplay.style.color = monComp.includes('▼') ? 'var(--primary)' : (monComp.includes('▲') ? 'var(--danger)' : 'var(--text)');
+    }
+
+    function renderNewStats(s) {
+        if(App.records.length === 0) return;
+
+        const lastRec = s.lastRec;
+        if(lastRec && lastRec.fat) {
+            const lbm = lastRec.weight * (1 - lastRec.fat/100);
+            const hMeter = App.settings.height / 100;
+            const lbmi = lbm / (hMeter * hMeter);
+            App.el.lbmDisplay.innerText = lbm.toFixed(1) + 'kg';
+            App.el.lbmiDisplay.innerText = `LBMI: ${lbmi.toFixed(1)}`;
+        } else {
+            App.el.lbmDisplay.innerText = '-';
+            App.el.lbmiDisplay.innerText = '체지방 입력 필요';
+        }
+
+        const startD = DateUtil.parse(App.records[0].date);
+        const lastD = DateUtil.parse(lastRec.date);
+        const dayDiff = Math.floor(DateUtil.daysBetween(startD, lastD));
+        App.el.dDayDisplay.innerText = `Day ${dayDiff + 1}`;
+
+        const recentRecs = App.records.slice(-14); 
+        if(recentRecs.length > 2) {
+            const first = recentRecs[0];
+            const last = recentRecs[recentRecs.length-1];
+            const days = DateUtil.daysBetween(DateUtil.parse(first.date), DateUtil.parse(last.date));
+            if(days > 0) {
+                const lossKg = first.weight - last.weight;
+                const dailyLoss = lossKg / days;
+                const userIntake = App.settings.intake || 2000;
+                const estimatedTdee = userIntake + (dailyLoss * 7700);
+                App.el.estTdeeDisplay.innerText = `${Math.round(estimatedTdee)} kcal`;
+                App.el.estTdeeSubDisplay.innerText = `(섭취 ${userIntake}kcal 가정)`;
+            } else {
+                App.el.estTdeeDisplay.innerText = '-';
+            }
+        } else {
+            App.el.estTdeeDisplay.innerText = '데이터 수집중';
+        }
+
+        const totalLost = App.settings.startWeight - s.current;
+        const totalDays = DateUtil.daysBetween(startD, lastD) || 1;
+        const weeklyEff = (totalLost / totalDays) * 7;
+        App.el.weeklyEffDisplay.innerText = `${weeklyEff.toFixed(2)} kg/주`;
+
+        if(App.records.length >= 3) {
+            const r3 = App.records[App.records.length-3];
+            const r1 = App.records[App.records.length-1];
+            const diff3 = r1.weight - r3.weight;
+            let msg = "안정";
+            if(diff3 < -0.4) msg = "📉 급하락";
+            else if(diff3 < 0) msg = "↘ 하락세";
+            else if(diff3 > 0.4) msg = "📈 급상승";
+            else if(diff3 > 0) msg = "↗ 상승세";
+            
+            App.el.shortTrendDisplay.innerText = msg;
+            App.el.shortTrendDisplay.style.color = diff3 > 0 ? 'var(--danger)' : (diff3 < 0 ? 'var(--primary)' : 'var(--text)');
+        } else {
+            App.el.shortTrendDisplay.innerText = '-';
+        }
+
+        if(App.records.length >= 7) {
+             const last7 = App.records.slice(-7);
+             const avg7 = last7.reduce((a,b)=>a+b.weight,0)/last7.length;
+             const dev = s.current - avg7;
+             App.el.waterIndexDisplay.innerText = (dev > 0 ? '+' : '') + dev.toFixed(1) + 'kg';
+             App.el.waterIndexDisplay.style.color = dev > 0.5 ? 'var(--danger)' : (dev < -0.5 ? 'var(--primary)' : 'var(--text)');
+        } else {
+            App.el.waterIndexDisplay.innerText = '-';
+        }
+
+        const startRecWithFat = App.records.find(r => r.fat);
+        if(startRecWithFat && lastRec.fat) {
+             const startFatKg = startRecWithFat.weight * (startRecWithFat.fat/100);
+             const currFatKg = lastRec.weight * (lastRec.fat/100);
+             const fatLoss = startFatKg - currFatKg;
+             
+             const startLeanKg = startRecWithFat.weight * (1 - startRecWithFat.fat/100);
+             const currLeanKg = lastRec.weight * (1 - lastRec.fat/100);
+             const leanLoss = startLeanKg - currLeanKg;
+             
+             const totalLoss = fatLoss + leanLoss;
+             const fatRatio = totalLoss > 0 ? (fatLoss/totalLoss)*100 : 0;
+             
+             App.el.netChangeDisplay.innerText = `지방 ${fatLoss.toFixed(1)}kg 감량`;
+             App.el.netChangeSubDisplay.innerText = `(감량분의 ${Math.round(fatRatio)}%가 지방)`;
+        } else {
+             App.el.netChangeDisplay.innerText = '-';
+             App.el.netChangeSubDisplay.innerText = '체지방 데이터 필요';
+        }
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(now.getDate()-30);
+        const recentRecs30 = App.records.filter(r => DateUtil.parse(r.date) >= thirtyDaysAgo);
+        const uniqueDays = new Set(recentRecs30.map(r => r.date)).size;
+        const score = Math.min(100, Math.round((uniqueDays / 30) * 100));
+        App.el.consistencyDisplay.innerText = `${score}%`;
+
+        const remW = s.current - App.settings.goal1;
+        if(remW > 0) {
+            const calToLose = remW * 7700;
+            const daysToGoal = 90;
+            const reqDeficit = Math.round(calToLose / daysToGoal);
+            App.el.deficitDisplay.innerText = `-${reqDeficit} kcal/일`;
+        } else {
+             App.el.deficitDisplay.innerText = '목표 달성!';
+        }
+
+        if(lastRec.fat) {
+            const hMeter = App.settings.height/100;
+            const lbm = lastRec.weight * (1 - lastRec.fat/100);
+            const ffmi = lbm / (hMeter * hMeter);
+            App.el.ffmiDisplay.innerText = ffmi.toFixed(1);
+        } else {
+             App.el.ffmiDisplay.innerText = '-';
+        }
+    }
+
+	function renderAdvancedText(s) {
+        if(App.records.length < 5) {
+            App.el.advancedAnalysisList.innerHTML = '<li class="insight-item">데이터가 5개 이상 쌓이면 분석을 제공합니다.</li>';
+            return;
+        }
+
+        let html = '';
+
+        const dayDeltas = [0,0,0,0,0,0,0]; 
+        const dayCounts = [0,0,0,0,0,0,0];
+        for(let i=1; i<App.records.length; i++) {
+            const d = DateUtil.parse(App.records[i].date).getDay();
+            const diff = App.records[i].weight - App.records[i-1].weight;
+            dayDeltas[d] += diff;
+            dayCounts[d]++;
+        }
+        const dayAvgs = dayDeltas.map((sum, i) => dayCounts[i] ? sum/dayCounts[i] : 0);
+        const bestDayIdx = dayAvgs.indexOf(Math.min(...dayAvgs));
+        const worstDayIdx = dayAvgs.indexOf(Math.max(...dayAvgs));
+        const dayNames = ['일','월','화','수','목','금','토'];
+        
+        html += `<li class="insight-item"><span class="insight-label">🧐 요일 승률:</span> 
+            <strong>${dayNames[bestDayIdx]}요일</strong>에 가장 잘 빠지고, 
+            <strong>${dayNames[worstDayIdx]}요일</strong>에 주의가 필요합니다.</li>`;
+
+        let maxPlateau = 0, currPlateau = 0;
+        for(let i=1; i<App.records.length; i++) {
+            const diff = Math.abs(App.records[i].weight - App.records[i-1].weight);
+            if(diff < 0.2) currPlateau++;
+            else currPlateau = 0;
+            if(currPlateau > maxPlateau) maxPlateau = currPlateau;
+        }
+        if(maxPlateau >= 3) {
+            html += `<li class="insight-item"><span class="insight-label">⏳ 최장 정체기:</span> 
+                체중 변화가 거의 없던 최장 기간은 <strong>${maxPlateau}일</strong> 입니다.</li>`;
+        }
+
+        const deltas = [];
+        for(let i=1; i<App.records.length; i++) deltas.push(App.records[i].weight - App.records[i-1].weight);
+        if(deltas.length > 0) {
+            const mean = deltas.reduce((a,b)=>a+b,0)/deltas.length;
+            const variance = deltas.reduce((a,b)=>a+Math.pow(b-mean,2),0)/deltas.length;
+            const stdDev = Math.sqrt(variance);
+            let volScore = Math.max(0, 100 - (stdDev * 50)); 
+            let volMsg = volScore > 80 ? "매우 안정적" : (volScore > 50 ? "보통" : "롤러코스터 🎢");
+            
+            html += `<li class="insight-item"><span class="insight-label">🎢 요요 인덱스:</span> 
+                변동성 점수 <strong>${Math.round(volScore)}점</strong> (${volMsg}) 입니다.</li>`;
+        }
+
+        const remaining = s.current - App.settings.goal1;
+        if(remaining > 0) {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - 30);
+            
+            let recentStartRecord = App.records.find(r => DateUtil.parse(r.date) >= cutoffDate);
+            const useFullHistory = !recentStartRecord || 
+                                  (App.records.indexOf(App.records[App.records.length-1]) - App.records.indexOf(recentStartRecord) < 3);
+
+            if(useFullHistory) {
+                recentStartRecord = App.records[0];
+            }
+
+            const rStartD = DateUtil.parse(recentStartRecord.date);
+            const rLastD = DateUtil.parse(s.lastRec.date);
+            const rDays = DateUtil.daysBetween(rStartD, rLastD) || 1;
+            
+            const currentSpeed = (recentStartRecord.weight - s.current) / rDays;
+
+            if(currentSpeed > 0.01) {
+                const boostedSpeed = currentSpeed + 0.05; 
+                const daysCur = remaining / currentSpeed;
+                const daysBoost = remaining / boostedSpeed;
+                const savedDays = Math.round(daysCur - daysBoost);
+                
+                if(daysCur < 1095 && savedDays > 0) {
+                    const label = useFullHistory ? "전체 평균" : "최근 페이스";
+                    html += `<li class="insight-item"><span class="insight-label">🔮 시뮬레이션:</span> 
+                        ${label} 기준으로 매일 50g씩만 더 뺀다면 <strong>${savedDays}일</strong> 앞당길 수 있습니다!</li>`;
+                }
+            } else if (!useFullHistory) {
+                 html += `<li class="insight-item"><span class="insight-label">🔮 시뮬레이션:</span> 
+                    최근 30일간은 체중 감소 추세가 뚜렷하지 않아 예측을 보류합니다.</li>`;
+            }
+        }
+
+        const now = new Date();
+        const thisMonthKey = now.toISOString().slice(0, 7);
+        const thisMonthRecs = App.records.filter(r => r.date.startsWith(thisMonthKey));
+        if(thisMonthRecs.length > 3) {
+            const startW = thisMonthRecs[0].weight;
+            const endW = thisMonthRecs[thisMonthRecs.length-1].weight;
+            const loss = startW - endW;
+            const uniqueDays = new Set(thisMonthRecs.map(r => r.date)).size;
+            const daysInMonth = now.getDate();
+            const consistency = (uniqueDays / daysInMonth) * 100;
+            
+            let grade = 'C';
+            if(loss > 2 && consistency > 80) grade = 'A+';
+            else if(loss > 1 && consistency > 60) grade = 'B';
+            else if(loss < 0) grade = 'D';
+
+            html += `<li class="insight-item"><span class="insight-label">🗓️ 월간 성적표:</span>
+                이번 달 성적은 <strong>${grade}</strong>입니다! (감량 ${loss.toFixed(1)}kg)</li>`;
+        }
+
+        if(App.records.length > 7) {
+            const last7 = App.records.slice(-7);
+            const totalDrop = last7[0].weight - last7[last7.length-1].weight;
+            if(totalDrop > 2.0) { 
+                html += `<li class="insight-item" style="color:var(--danger)"><span class="insight-label">🔄 요요 위험도 경고:</span>
+                    최근 감량 속도가 너무 빠릅니다. 급격한 감량은 요요를 부를 수 있습니다.</li>`;
+            }
+        }
+
+        if(App.records.length > 30) {
+            let maxLoss30 = -999;
+            let bestPeriod = '';
+            for(let i=30; i<App.records.length; i++) {
+                const prev = App.records[i-30];
+                const curr = App.records[i];
+                const diff = prev.weight - curr.weight;
+                if(diff > maxLoss30) {
+                    maxLoss30 = diff;
+                    bestPeriod = `${prev.date} ~ ${curr.date}`;
+                }
+            }
+            if(maxLoss30 > 0) {
+                 html += `<li class="insight-item"><span class="insight-label">🏆 베스트 퍼포먼스:</span>
+                    <strong>${bestPeriod}</strong> 기간에 <strong>${maxLoss30.toFixed(1)}kg</strong> 감량한 기록이 있습니다.</li>`;
+            }
+        }
+
+        App.el.advancedAnalysisList.innerHTML = html;
+    }
+	
+    function updateProgressBar(current, lost, percent, remaining) {
+        let visualPercent = percent;
+        if(visualPercent < 0) visualPercent = 0;
+        if(visualPercent > 100) visualPercent = 100;
+
+        App.el.labelStart.innerText = `시작: ${App.settings.startWeight}kg`;
+        App.el.labelGoal.innerText = `목표: ${App.settings.goal1}kg`;
+
+        App.el.progressBarFill.style.width = `${visualPercent}%`;
+        App.el.progressEmoji.style.right = `${visualPercent}%`;
+        App.el.progressText.style.right = `${visualPercent}%`;
+
+        const displayLost = Math.abs(lost).toFixed(1);
+        const displayPercent = percent.toFixed(1);
+        const safeRemain = remaining > 0 ? remaining : 0;
+        
+        let remainPercentVal = 100 - percent;
+        if (safeRemain <= 0) remainPercentVal = 0;
+        const displayRemainPercent = remainPercentVal.toFixed(1);
+
+        let statusMsg = "";
+        if (remaining <= 0) statusMsg = "🎉 목표 달성!";
+
+        App.el.progressText.innerHTML = `
+            <strong>${current.toFixed(1)}kg</strong> ${statusMsg}<br>
+            감량: ${displayLost}kg (${displayPercent}%)<br>
+            남은: ${safeRemain}kg (${displayRemainPercent}%)
+        `;
+    }
+    
+    function renderAnalysisText() {
+        if (App.records.length < 2) {
+            App.el.analysisText.innerText = "데이터가 2개 이상 쌓이면 분석을 시작합니다. 화이팅!";
+            return;
+        }
+        const last = App.records[App.records.length-1];
+        const prev = App.records[App.records.length-2];
+        const diff = MathUtil.diff(last.weight, prev.weight);
+        
+        if (diff < 0) App.el.analysisText.innerText = `어제보다 ${Math.abs(diff)}kg 빠졌습니다! 이대로 쭉 가봅시다! 🔥`;
+        else if (diff > 0) App.el.analysisText.innerText = `약간 증량(${diff}kg)했지만 괜찮습니다. 장기적인 추세가 중요합니다.`;
+        else App.el.analysisText.innerText = `체중 유지 중입니다. 꾸준함이 답입니다.`;
+    }
+
+    function calculateScenarios(currentW) {
+        if(currentW <= App.settings.goal1) return { avg: "달성 완료! 🎉", range: "" };
+        if(App.records.length < 5) return { avg: "데이터 수집 중...", range: "" };
+        
+        const recent = App.records.slice(-30);
+        if(recent.length < 2) return { avg: "분석 중...", range: "" };
+
+        const first = recent[0];
+        const last = recent[recent.length-1];
+        const days = DateUtil.daysBetween(new Date(first.date), new Date(last.date));
+        const totalDiff = first.weight - last.weight;
+        const avgRate = totalDiff / (days || 1); 
+
+        if(avgRate <= 0.001) return { avg: "증량/유지세 🤔", range: "식단 조절 필요" };
+
+        const remain = currentW - App.settings.goal1;
+        const daysLeftAvg = Math.ceil(remain / avgRate);
+        
+        const fastRate = avgRate * 1.5; 
+        const slowRate = avgRate * 0.7;
+
+        const dAvg = new Date(); dAvg.setDate(dAvg.getDate() + daysLeftAvg);
+        const dFast = new Date(); dFast.setDate(dFast.getDate() + Math.ceil(remain / fastRate));
+        const dSlow = new Date(); dSlow.setDate(dSlow.getDate() + Math.ceil(remain / slowRate));
+
+        const formatDate = (d) => `${d.getMonth()+1}/${d.getDate()}`;
+        
+        return {
+            avg: `${formatDate(dAvg)} (${daysLeftAvg}일 후)`,
+            range: `최적 ${formatDate(dFast)} ~ 보수 ${formatDate(dSlow)}`
+        };
+    }
+
+    function calculateWeeklyAvg() {
+        if(App.records.length < 2) return '-';
+        const sorted = [...App.records];
+        const weeks = {};
+        sorted.forEach(r => {
+            const d = DateUtil.parse(r.date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day == 0 ? -6 : 1);
+            const monday = new Date(d.setDate(diff));
+            monday.setHours(0,0,0,0);
+            const key = monday.getTime();
+            if(!weeks[key]) weeks[key] = [];
+            weeks[key].push(r.weight);
+        });
+        
+        const weekKeys = Object.keys(weeks).sort();
+        if(weekKeys.length < 2) return '-';
+
+        let totalLoss = 0;
+        let count = 0;
+        
+        for(let i=1; i<weekKeys.length; i++) {
+            const prevW = weeks[weekKeys[i-1]];
+            const currW = weeks[weekKeys[i]];
+            const prevAvg = prevW.reduce((a,b)=>a+b,0) / prevW.length;
+            const currAvg = currW.reduce((a,b)=>a+b,0) / currW.length;
+            totalLoss += (prevAvg - currAvg);
+            count++;
+        }
+        
+        if(count === 0) return '-';
+        return (totalLoss / count).toFixed(2);
+    }
+
+    function calculateMonthlyComparison() {
+        if(App.records.length === 0) return '-';
+        const now = new Date();
+        const thisMonthKey = now.toISOString().slice(0, 7);
+        const lastMonthDate = new Date(); lastMonthDate.setMonth(now.getMonth()-1);
+        const lastMonthKey = lastMonthDate.toISOString().slice(0, 7);
+
+        const thisMonthRecs = App.records.filter(r => r.date.startsWith(thisMonthKey));
+        const lastMonthRecs = App.records.filter(r => r.date.startsWith(lastMonthKey));
+
+        if(thisMonthRecs.length === 0 || lastMonthRecs.length === 0) return '-';
+
+        const avgThis = thisMonthRecs.reduce((a,b)=>a+b.weight,0)/thisMonthRecs.length;
+        const avgLast = lastMonthRecs.reduce((a,b)=>a+b.weight,0)/lastMonthRecs.length;
+        const diff = avgThis - avgLast;
+        
+        return `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}kg`;
+    }
+
+    function getRate(d) {
+        const now = new Date();
+        now.setHours(0,0,0,0);
+        const startTimestamp = now.getTime() - (d * 24 * 60 * 60 * 1000);
+        
+        const rel = App.records.filter(r => {
+            const rd = DateUtil.parse(r.date);
+            return rd.getTime() >= startTimestamp;
+        });
+
+        if(rel.length < 2) return "-";
+        const diff = rel[rel.length-1].weight - rel[0].weight;
+        const days = DateUtil.daysBetween(DateUtil.parse(rel[0].date), DateUtil.parse(rel[rel.length-1].date));
+        if(days===0) return "-";
+        const g = ((diff/days)*1000).toFixed(0);
+        return `${g > 0 ? '+' : ''}${g}g / 일`;
+    }
+
+    function getWeeklyComparison() {
+        const now = new Date(); now.setHours(0,0,0,0);
+        const t7 = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+        const t14 = now.getTime() - (14 * 24 * 60 * 60 * 1000);
+        
+        const thisW = App.records.filter(r => {
+            const d = DateUtil.parse(r.date);
+            return d.getTime() >= t7;
+        });
+        const lastW = App.records.filter(r => { 
+            const d = DateUtil.parse(r.date);
+            return d.getTime() >= t14 && d.getTime() < t7; 
+        });
+        
+        if(thisW.length === 0 || lastW.length === 0) return "데이터 부족";
+        
+        const avgT = thisW.reduce((a,b)=>a+b.weight,0)/thisW.length;
+        const avgL = lastW.reduce((a,b)=>a+b.weight,0)/lastW.length;
+        const diff = (avgT - avgL).toFixed(2);
+        
+        const icon = diff < 0 ? '🔻' : (diff > 0 ? '🔺' : '➖');
+        return `${icon} ${Math.abs(diff)}kg`;
+    }
+
+    // --- 7. 차트 그리기 함수들 (렌더링 최적화 적용) ---
+    function updateFilterButtons() {
+        App.el['btn-1m'].className = 'filter-btn' + (App.chartFilterMode==='1M'?' active':'');
+        App.el['btn-3m'].className = 'filter-btn' + (App.chartFilterMode==='3M'?' active':'');
+        App.el['btn-6m'].className = 'filter-btn' + (App.chartFilterMode==='6M'?' active':'');
+        App.el['btn-1y'].className = 'filter-btn' + (App.chartFilterMode==='1Y'?' active':'');
+        App.el['btn-all'].className = 'filter-btn' + (App.chartFilterMode==='ALL'?' active':'');
+    }
+
+    function setChartFilter(mode) {
+        App.chartFilterMode = mode;
+        localStorage.setItem(App.FILTER_KEY, mode);
+        updateFilterButtons();
+        updateUI(); 
+    }
+
+    function applyCustomDateRange() {
+        const s = App.el.chartStartDate.value;
+        const e = App.el.chartEndDate.value;
+        if(s && e) {
+            App.chartFilterMode = 'CUSTOM';
+            App.customStart = s; App.customEnd = e;
+            localStorage.setItem(App.FILTER_KEY, 'CUSTOM');
+            document.querySelectorAll('.filter-group .filter-btn').forEach(b=>b.classList.remove('active'));
+            updateUI();
+        }
+    }
+
+    function getFilteredData() {
+        if(App.records.length === 0) return [];
+        let start = DateUtil.parse(App.records[0].date);
+        let end = new Date(); end.setHours(23,59,59,999);
+        const now = new Date(); now.setHours(0,0,0,0);
+
+        if(App.chartFilterMode === '1M') { 
+            start = new Date(now); start.setMonth(start.getMonth()-1); 
+        } else if(App.chartFilterMode === '3M') { 
+            start = new Date(now); start.setMonth(start.getMonth()-3); 
+        } else if(App.chartFilterMode === '6M') { 
+            start = new Date(now); start.setMonth(start.getMonth()-6);
+        } else if(App.chartFilterMode === '1Y') { 
+            start = new Date(now); start.setFullYear(start.getFullYear()-1);
+        } else if(App.chartFilterMode === 'CUSTOM' && App.customStart) { 
+            start = DateUtil.parse(App.customStart);
+            end = DateUtil.parse(App.customEnd); end.setHours(23,59,59,999);
+        }
+        
+        return App.records.filter(r => {
+            const d = DateUtil.parse(r.date);
+            return d >= start && d <= end;
+        });
+    }
+
+    function createChartConfig(type, data, options, colors) {
+        const defaultOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
+                y: { ticks: { color: colors.text }, grid: { color: colors.grid } }
+            }
+        };
+        if(options && options.scales) {
+             if(options.scales.x) Object.assign(defaultOptions.scales.x, options.scales.x);
+             if(options.scales.y) Object.assign(defaultOptions.scales.y, options.scales.y);
+        }
+        Object.assign(defaultOptions, options);
+        return { type, data, options: defaultOptions };
+    }
+
+    // 차트 업데이트 헬퍼 (destroy 대신 update 사용)
+    function updateChartHelper(key, ctx, config) {
+        // 기존 차트가 캔버스에 붙어있지만 App.charts[key]가 유실된 경우 방어 로직
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart && existingChart !== App.charts[key]) {
+            existingChart.destroy();
+        }
+
+        if (App.charts[key]) {
+            App.charts[key].data = config.data;
+            if (config.options) {
+                // 옵션 병합 (필요 시 deep merge)
+                Object.assign(App.charts[key].options, config.options);
+            }
+            App.charts[key].update();
+        } else {
+            App.charts[key] = new Chart(ctx, config);
+        }
+    }
+
+    function updateMainChart(colors) {
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        const data = getFilteredData();
+        const showTrend = App.el.showTrend.checked;
+        const points = data.map(r => ({ x: r.date, y: r.weight }));
+        
+        const h = App.settings.height / 100;
+        // BMI 기준 상수 사용
+        const w185 = CONFIG.BMI.UNDER * h * h;
+        const w23 = CONFIG.BMI.OVER * h * h;
+        const w25 = CONFIG.BMI.OBESE * h * h;
+        
+        const chartStart = points.length ? points[0].x : new Date();
+        const chartEnd = points.length ? points[points.length-1].x : new Date();
+
+        const trend = [];
+        const upperBand = [];
+        const lowerBand = [];
+
+        if(showTrend) {
+            for(let i=0; i<data.length; i++) {
+                const currentDate = DateUtil.parse(data[i].date);
+                const sevenDaysAgo = new Date(currentDate);
+                sevenDaysAgo.setDate(currentDate.getDate() - 6);
+                
+                const windowData = App.records.filter(r => {
+                    const d = DateUtil.parse(r.date);
+                    return d >= sevenDaysAgo && d <= currentDate;
+                });
+                
+                if(windowData.length > 0) {
+                     const weights = windowData.map(r => r.weight);
+                     const mean = weights.reduce((acc, cur) => acc + cur, 0) / weights.length;
+                     trend.push({ x: data[i].date, y: mean });
+
+                     const variance = weights.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / weights.length;
+                     const stdDev = Math.sqrt(variance);
+                     upperBand.push({ x: data[i].date, y: mean + (2 * stdDev) });
+                     lowerBand.push({ x: data[i].date, y: mean - (2 * stdDev) });
+                }
+            }
+        }
+
+        const isDark = document.body.classList.contains('dark-mode');
+
+        const datasets = [
+             {
+                label: '비만',
+                data: [{x: chartStart, y: 150}, {x: chartEnd, y: 150}],
+                fill: { target: {value: w25}, above: isDark ? 'rgba(244, 67, 54, 0.1)' : 'rgba(244, 67, 54, 0.05)' },
+                borderColor: 'transparent', pointRadius: 0
+            },
+            {
+                label: '과체중',
+                data: [{x: chartStart, y: w25}, {x: chartEnd, y: w25}],
+                fill: { target: {value: w23}, above: isDark ? 'rgba(255, 152, 0, 0.1)' : 'rgba(255, 152, 0, 0.05)' },
+                borderColor: 'transparent', pointRadius: 0
+            },
+            {
+                label: '정상',
+                data: [{x: chartStart, y: w23}, {x: chartEnd, y: w23}],
+                fill: { target: {value: w185}, above: isDark ? 'rgba(76, 175, 80, 0.1)' : 'rgba(76, 175, 80, 0.05)' },
+                borderColor: 'transparent', pointRadius: 0
+            },
+            {
+                label: '체중',
+                data: points,
+                borderColor: colors.primary,
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                fill: false,
+                tension: 0.1,
+                pointRadius: 3
+            },
+            ...(showTrend ? [{
+                label: '7일 추세',
+                data: trend,
+                borderColor: colors.secondary, 
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.4
+            }, {
+                label: 'Bollinger Upper',
+                data: upperBand,
+                borderColor: 'transparent',
+                pointRadius: 0,
+                fill: '+1', 
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
+            }, {
+                label: 'Bollinger Lower',
+                data: lowerBand,
+                borderColor: 'transparent',
+                pointRadius: 0
+            }] : []),
+            {
+                label: '목표',
+                data: data.length ? [{x: data[0].date, y: App.settings.goal1}, {x: data[data.length-1].date, y: App.settings.goal1}] : [],
+                borderColor: colors.secondary,
+                borderDash: [5,5],
+                pointRadius: 0,
+                borderWidth: 1
+            }
+        ];
+
+        // 추세선 ON/OFF 시 데이터셋 구조가 바뀌므로 destroy 후 재생성하는 것이 안전할 수 있으나,
+        // 여기서는 부드러운 전환을 위해 updateChartHelper 내부 로직 활용
+        // (데이터셋 개수가 달라지면 Chart.js가 알아서 처리하거나, 필요시 destroy 호출)
+        if (App.charts.main && App.charts.main.data.datasets.length !== datasets.length) {
+            App.charts.main.destroy();
+            App.charts.main = null;
+        }
+
+        const config = createChartConfig('line', { datasets }, {
+            scales: {
+                x: {
+                    type: 'time',
+                    time: { unit: 'day', displayFormats: { day: 'MM/dd' } }
+                },
+                y: {
+                    max: points.length > 0 ? Math.ceil(Math.max(...points.map(p => p.y), App.settings.startWeight)) + 1 : App.settings.startWeight + 1,
+                    suggestedMin: App.settings.goal1 - 2
+                }
+            },
+            plugins: {
+                tooltip: { mode: 'index', intersect: false },
+                legend: {
+                    labels: {
+                        color: colors.text,
+                        filter: function(item) { return !['비만', '과체중', '정상', 'Bollinger Upper', 'Bollinger Lower'].includes(item.text); }
+                    }
+                }
+            }
+        }, colors);
+
+        updateChartHelper('main', ctx, config);
+    }
+
+    function updateDayOfWeekChart(colors) {
+        if(App.records.length < 2) return;
+        const sums = [0,0,0,0,0,0,0];
+        const counts = [0,0,0,0,0,0,0];
+        
+        for(let i=1; i<App.records.length; i++) {
+            const diff = App.records[i].weight - App.records[i-1].weight;
+            const day = DateUtil.parse(App.records[i].date).getDay();
+            sums[day] += diff;
+            counts[day]++;
+        }
+        
+        const avgs = sums.map((s, i) => counts[i] ? s/counts[i] : 0);
+        const ctx = document.getElementById('dayOfWeekChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: ['일','월','화','수','목','금','토'],
+            datasets: [{
+                label: '평균 변화(kg)',
+                data: avgs,
+                backgroundColor: avgs.map(v => v>0 ? CONFIG.COLORS.GAIN : '#c8e6c9'),
+                borderColor: avgs.map(v => v>0 ? '#e57373':'#81c784'),
+                borderWidth: 1
+            }]
+        }, { plugins: { legend: { display: false } } }, colors);
+
+        updateChartHelper('dow', ctx, config);
+    }
+
+    function updateHistogram(colors) {
+        if(App.records.length === 0) return;
+        const weights = App.records.map(r => r.weight);
+        const min = Math.floor(Math.min(...weights));
+        const max = Math.ceil(Math.max(...weights));
+        
+        const labels = [];
+        const data = [];
+        for(let i=min; i<=max; i++) {
+            labels.push(i + 'kg대');
+            data.push(weights.filter(w => Math.floor(w) === i).length);
+        }
+
+        const ctx = document.getElementById('histogramChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: labels,
+            datasets: [{
+                label: '일수',
+                data: data,
+                backgroundColor: colors.secondary,
+                borderRadius: 4
+            }]
+        }, { plugins: { legend: { display: false } } }, colors);
+
+        updateChartHelper('hist', ctx, config);
+    }
+
+    function updateCumulativeChart(colors) {
+        if(App.records.length === 0) return;
+        const points = App.records.map(r => ({
+            x: r.date,
+            y: MathUtil.round(App.settings.startWeight - r.weight, 2)
+        }));
+
+        const ctx = document.getElementById('cumulativeChart').getContext('2d');
+        const config = createChartConfig('line', {
+            datasets: [{
+                label: '누적 감량(kg)',
+                data: points,
+                borderColor: '#9C27B0',
+                backgroundColor: 'rgba(156, 39, 176, 0.2)',
+                fill: true,
+                tension: 0.2,
+                pointRadius: 1
+            }]
+        }, {
+            scales: {
+                x: { type: 'time', time: { unit: 'month' } },
+                y: { beginAtZero: true }
+            },
+            plugins: { legend: { display: false } }
+        }, colors);
+
+        updateChartHelper('cumul', ctx, config);
+    }
+
+    function updateMonthlyChangeChart(colors) {
+        if(App.records.length === 0) return;
+        
+        const months = {};
+        App.records.forEach(r => {
+            const key = r.date.substring(0, 7);
+            if(!months[key]) months[key] = [];
+            months[key].push(r.weight);
+        });
+
+        const labels = [];
+        const data = [];
+        const bgColors = [];
+
+        Object.keys(months).sort().forEach(m => {
+            const arr = months[m];
+            const change = MathUtil.diff(arr[arr.length-1], arr[0]); 
+            labels.push(m);
+            data.push(change);
+            bgColors.push(change > 0 ? CONFIG.COLORS.GAIN : CONFIG.COLORS.LOSS);
+        });
+
+        const ctx = document.getElementById('monthlyChangeChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: labels,
+            datasets: [{
+                label: '월별 변화(kg)',
+                data: data,
+                backgroundColor: bgColors,
+                borderWidth: 0
+            }]
+        }, {
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
+        }, colors);
+
+        updateChartHelper('monthly', ctx, config);
+    }
+
+    function updateBodyFatChart(colors) {
+        const fatData = App.records.filter(r => r.fat).map(r => ({ x: r.date, y: r.fat }));
+        if(fatData.length === 0) return;
+
+        const ctx = document.getElementById('bodyFatChart').getContext('2d');
+        const config = createChartConfig('line', {
+            datasets: [{
+                label: '체지방률(%)',
+                data: fatData,
+                borderColor: '#FF5722',
+                backgroundColor: 'rgba(255, 87, 34, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 2
+            }]
+        }, {
+            scales: { x: { type: 'time', time: { unit: 'month' } } },
+            plugins: { legend: { display: false } }
+        }, colors);
+
+        updateChartHelper('fat', ctx, config);
+    }
+
+    function updateScatterChart(colors) {
+        const data = App.records.filter(r => r.fat).map(r => ({ x: r.weight, y: r.fat }));
+        if(data.length === 0) return;
+
+        const ctx = document.getElementById('scatterChart').getContext('2d');
+        const config = createChartConfig('scatter', {
+            datasets: [{
+                label: '체중(kg) vs 체지방(%)',
+                data: data,
+                backgroundColor: colors.secondary
+            }]
+        }, {
+            scales: {
+                x: { title: { display: true, text: '체중 (kg)' } },
+                y: { title: { display: true, text: '체지방 (%)' } }
+            }
+        }, colors);
+
+        updateChartHelper('scatter', ctx, config);
+    }
+
+    function updateWeekendChart(colors) {
+        if(App.records.length < 2) return;
+        const weekdayDeltas = [], weekendDeltas = [];
+        
+        for(let i=1; i<App.records.length; i++) {
+            const d = DateUtil.parse(App.records[i].date).getDay();
+            const diff = App.records[i].weight - App.records[i-1].weight;
+            if(d === 0 || d === 6) weekendDeltas.push(diff);
+            else weekdayDeltas.push(diff);
+        }
+
+        const avgWeekday = weekdayDeltas.length ? weekdayDeltas.reduce((a,b)=>a+b,0)/weekdayDeltas.length : 0;
+        const avgWeekend = weekendDeltas.length ? weekendDeltas.reduce((a,b)=>a+b,0)/weekendDeltas.length : 0;
+
+        const chartData = [avgWeekday, avgWeekend];
+
+        const ctx = document.getElementById('weekendChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: ['평일 (월~금)', '주말 (토~일)'],
+            datasets: [{
+                label: '평균 변화량 (kg)',
+                data: chartData,
+                backgroundColor: [colors.primary, colors.danger],
+                barThickness: 50
+            }]
+        }, { plugins: { legend: { display: false } } }, colors);
+
+        updateChartHelper('weekend', ctx, config);
+    }
+
+    function updateBodyCompStackedChart(colors) {
+        const fatRecs = App.records.filter(r => r.fat);
+        if(fatRecs.length < 2) return;
+
+        const fatKg = fatRecs.map(r => ({ x: r.date, y: r.weight * (r.fat/100) }));
+        const leanKg = fatRecs.map(r => ({ x: r.date, y: r.weight * (1 - r.fat/100) }));
+
+        const ctx = document.getElementById('bodyCompStackedChart').getContext('2d');
+        const config = createChartConfig('line', {
+            datasets: [
+                {
+                    label: '제지방량 (kg)',
+                    data: leanKg,
+                    borderColor: colors.primary,
+                    backgroundColor: 'rgba(76, 175, 80, 0.5)',
+                    fill: true
+                },
+                {
+                    label: '체지방량 (kg)',
+                    data: fatKg,
+                    borderColor: colors.danger,
+                    backgroundColor: 'rgba(244, 67, 54, 0.5)',
+                    fill: true
+                }
+            ]
+        }, {
+            scales: {
+                x: { type: 'time', time: { unit: 'month' } },
+                y: { stacked: true }
+            }
+        }, colors);
+
+        updateChartHelper('bodyComp', ctx, config);
+    }
+
+    function updateMonthlyBoxPlotChart(colors) {
+        if(App.records.length === 0) return;
+        
+        const months = {};
+        App.records.forEach(r => {
+            const key = r.date.substring(0, 7);
+            if(!months[key]) months[key] = [];
+            months[key].push(r.weight);
+        });
+
+        const labels = Object.keys(months).sort();
+        const barData = []; 
+        const scatterData = []; 
+
+        labels.forEach(m => {
+            const arr = months[m];
+            const min = Math.min(...arr);
+            const max = Math.max(...arr);
+            arr.sort((a,b)=>a-b);
+            const median = arr[Math.floor(arr.length/2)];
+            
+            barData.push([min, max]);
+            scatterData.push(median);
+        });
+
+        const ctx = document.getElementById('monthlyBoxPlotChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: '범위 (Min-Max)',
+                    data: barData,
+                    backgroundColor: 'rgba(33, 150, 243, 0.3)',
+                    borderColor: colors.secondary,
+                    borderWidth: 1,
+                    barPercentage: 0.5
+                },
+                {
+                    type: 'line',
+                    label: '중앙값',
+                    data: scatterData,
+                    borderColor: colors.text,
+                    backgroundColor: colors.text,
+                    borderWidth: 0,
+                    pointRadius: 4,
+                    pointStyle: 'rectRot'
+                }
+            ]
+        }, { scales: { y: { beginAtZero: false } } }, colors);
+
+        updateChartHelper('boxPlot', ctx, config);
+    }
+
+    function updateRocChart(colors) {
+        if(App.records.length < 2) return;
+        const data = [];
+        for(let i=1; i<App.records.length; i++) {
+            data.push({
+                x: App.records[i].date,
+                y: App.records[i].weight - App.records[i-1].weight
+            });
+        }
+
+        const ctx = document.getElementById('rocChart').getContext('2d');
+        const config = createChartConfig('line', {
+            datasets: [{
+                label: '일일 변화량 (kg)',
+                data: data,
+                borderColor: colors.text,
+                borderWidth: 1,
+                pointRadius: 1,
+                segment: {
+                    borderColor: ctx => ctx.p0.parsed.y > 0 ? colors.danger : colors.primary
+                }
+            }]
+        }, {
+            scales: { x: { type: 'time', time: { unit: 'day' } } },
+            plugins: { legend: { display: false } }
+        }, colors);
+
+        updateChartHelper('roc', ctx, config);
+    }
+
+    // --- 8. 테이블 & 히트맵 & 캘린더 & 뱃지 렌더링 ---
+    function renderHeatmap() {
+        const container = App.el.heatmapGrid;
+        container.innerHTML = '';
+        if(App.records.length === 0) return;
+
+        const deltaMap = {};
+        for(let i=1; i<App.records.length; i++) {
+            const diff = App.records[i].weight - App.records[i-1].weight;
+            deltaMap[App.records[i].date] = diff;
+        }
+
+        const end = new Date();
+        const start = new Date(); start.setFullYear(start.getFullYear()-1);
+        
+        for(let d=start; d<=end; d.setDate(d.getDate()+1)) {
+            const dateStr = DateUtil.format(d);
+            const div = document.createElement('div');
+            div.className = 'heatmap-cell';
+            div.title = dateStr; 
+            
+            if(deltaMap[dateStr] !== undefined) {
+                const val = deltaMap[dateStr];
+                div.title += ` (${val>0?'+':''}${val.toFixed(1)}kg)`;
+                if(val > 0) div.style.background = 'var(--heatmap-gain)';
+                else if(val > -0.1) div.style.background = 'var(--heatmap-1)';
+                else if(val > -0.3) div.style.background = 'var(--heatmap-2)';
+                else if(val > -0.5) div.style.background = 'var(--heatmap-3)';
+                else div.style.background = 'var(--heatmap-4)';
+            }
+            container.appendChild(div);
+        }
+    }
+
+    function changeCalendarMonth(offset) {
+        const d = App.state.calendarViewDate;
+        App.state.calendarViewDate = new Date(d.getFullYear(), d.getMonth() + offset, 1);
+        renderCalendarView();
+    }
+
+    function jumpToCalendarDate() {
+        const year = parseInt(document.getElementById('calYearSelect').value);
+        const month = parseInt(document.getElementById('calMonthSelect').value);
+        App.state.calendarViewDate = new Date(year, month, 1);
+        renderCalendarView();
+    }
+
+    function renderCalendarView() {
+        const container = App.el.calendarContainer;
+        if(App.records.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:var(--text-light);">데이터가 없습니다.</p>';
+            return;
+        }
+        
+        const viewDate = App.state.calendarViewDate;
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        const dayMap = {};
+        App.records.forEach(r => {
+            const rd = DateUtil.parse(r.date);
+            if(rd.getFullYear() === year && rd.getMonth() === month) {
+                dayMap[rd.getDate()] = r.weight;
+            }
+        });
+
+        let html = `<div class="calendar-header">
+            <button onclick="App.changeCalendarMonth(-1)">◀ 이전달</button>
+            <div>
+                <select id="calYearSelect" onchange="App.jumpToCalendarDate()">`;
+        const currentYear = new Date().getFullYear();
+        for(let y=currentYear-5; y<=currentYear+1; y++) {
+            html += `<option value="${y}" ${y===year?'selected':''}>${y}년</option>`;
+        }
+        html += `</select>
+                <select id="calMonthSelect" onchange="App.jumpToCalendarDate()">`;
+        for(let m=0; m<12; m++) {
+            html += `<option value="${m}" ${m===month?'selected':''}>${m+1}월</option>`;
+        }
+        html += `</select>
+            </div>
+            <button onclick="App.changeCalendarMonth(1)">다음달 ▶</button>
+        </div>`;
+        
+        html += `<div class="calendar-grid">`;
+        
+        const days = ['일','월','화','수','목','금','토'];
+        days.forEach(d => html += `<div class="calendar-cell" style="font-weight:bold;background:var(--heatmap-empty);border:none;">${d}</div>`);
+        
+        for(let i=0; i<firstDay.getDay(); i++) html += `<div class="calendar-cell" style="background:transparent;border:none;"></div>`;
+        
+        for(let d=1; d<=lastDay.getDate(); d++) {
+            const weight = dayMap[d];
+            let cls = 'calendar-cell';
+            let diffHtml = '';
+            
+            const currentDateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const targetIdx = App.records.findIndex(r => r.date === currentDateStr);
+            
+            if(targetIdx > 0 && App.records[targetIdx] && App.records[targetIdx-1]) {
+                const currentW = App.records[targetIdx].weight;
+                const prevW = App.records[targetIdx-1].weight;
+                const diff = MathUtil.diff(currentW, prevW);
+                if(diff > 0) cls += ' gain';
+                if(diff < 0) cls += ' loss';
+                diffHtml = `<div class="calendar-val">${diff>0?'+':''}${diff.toFixed(1)}</div>`;
+            }
+
+            html += `<div class="${cls}">
+                <div class="calendar-date">${d}</div>
+                <div class="calendar-val" style="font-weight:bold;">${weight ? weight : '-'}</div>
+                ${diffHtml}
+            </div>`;
+        }
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function renderAllTables() {
+        renderMonthlyTable();
+        renderWeeklyTable();
+        renderMilestoneTable();
+        renderHistoryTable();
+    }
+
+    function renderMonthlyTable() {
+        const months = {};
+        App.records.forEach(r => {
+            const key = r.date.substring(0, 7);
+            if(!months[key]) months[key] = [];
+            months[key].push(r.weight);
+        });
+        
+        let html = '';
+        Object.keys(months).sort().reverse().forEach(m => {
+            const arr = months[m];
+            const start = arr[0];
+            const end = arr[arr.length-1];
+            const diff = MathUtil.diff(end, start);
+            const avg = (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1);
+            html += `<tr><td>${DomUtil.escapeHtml(m)}</td><td>${start}</td><td>${end}</td><td class="${diff<=0?'neg':'pos'}">${diff}</td><td>${avg}</td></tr>`;
+        });
+        App.el.monthlyTableBody.innerHTML = html;
+    }
+
+    function renderWeeklyTable() {
+        const weeks = {};
+        App.records.forEach(r => {
+            const d = DateUtil.parse(r.date);
+            const day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6:1); 
+            const monday = new Date(d.setDate(diff));
+            const key = DateUtil.format(monday);
+            
+            if(!weeks[key]) weeks[key] = [];
+            weeks[key].push(r.weight);
+        });
+
+        let html = '';
+        Object.keys(weeks).sort().reverse().forEach(w => {
+            const arr = weeks[w];
+            const avg = (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1);
+            const diff = MathUtil.diff(arr[arr.length-1], arr[0]);
+            html += `<tr><td>${DomUtil.escapeHtml(w)} 주</td><td>${avg}kg</td><td class="${diff<=0?'neg':'pos'}">${diff}</td></tr>`;
+        });
+        App.el.weeklyTableBody.innerHTML = html;
+    }
+
+    function renderMilestoneTable() {
+        let html = '';
+        if(App.records.length > 0) {
+            let currentInt = Math.floor(App.records[0].weight);
+            let startDate = DateUtil.parse(App.records[0].date);
+            
+            for(let i=1; i<App.records.length; i++) {
+                const w = Math.floor(App.records[i].weight);
+                if(w < currentInt) {
+                    const nowD = DateUtil.parse(App.records[i].date);
+                    const days = Math.ceil((nowD - startDate)/(1000*3600*24));
+                    html += `<tr><td>🎉 ${w}kg대 진입</td><td>${DomUtil.escapeHtml(App.records[i].date)}</td><td>${days}일 소요</td></tr>`;
+                    currentInt = w;
+                    startDate = nowD;
+                }
+            }
+        }
+        App.el.milestoneTableBody.innerHTML = html || '<tr><td colspan="3">아직 기록된 마일스톤이 없습니다.</td></tr>';
+    }
+
+    function renderHistoryTable() {
+        let html = '';
+        const rev = [...App.records].reverse();
+        rev.forEach(r => {
+            const idx = App.records.findIndex(o => o.date === r.date);
+            let diffStr = '-';
+            let cls = '';
+            if(idx > 0) {
+                const d = MathUtil.diff(r.weight, App.records[idx-1].weight);
+                diffStr = (d>0?'+':'') + d.toFixed(1);
+                cls = d>0?'pos':(d<0?'neg':'');
+            }
+            const fatStr = r.fat ? r.fat + '%' : '-';
+            // 이벤트 위임용 data 속성 추가, onclick 제거
+            html += `<tr>
+                        <td>${DomUtil.escapeHtml(r.date)}</td>
+                        <td>${r.weight}kg</td>
+                        <td>${DomUtil.escapeHtml(fatStr)}</td>
+                        <td class="${cls}">${diffStr}</td>
+                        <td>
+                            <button data-action="edit" data-date="${r.date}" style="border:none;background:none;cursor:pointer;" title="수정">✏️</button>
+                            <button data-action="delete" data-date="${r.date}" style="border:none;background:none;cursor:pointer;" title="삭제">🗑️</button>
+                        </td>
+                     </tr>`;
+        });
+        App.el.historyList.innerHTML = html;
+    }
+
+    function renderBadges(s) {
+        if(App.records.length === 0) return;
+        const totalLost = MathUtil.diff(App.settings.startWeight, s.current);
+        const streak = s.maxStreak || 0;
+
+        let weekendDef = false;
+        let plateauBreak = false;
+        let bmiBreak = false;
+        let yoyoPrev = false;
+        let ottogi = false;
+        
+        let recordGod = App.records.length >= 365;
+        let goldenCross = false;
+        let fatDestroyer = false;
+
+        if(App.records.length > 1) {
+            // Weekend Defense
+            for(let i=0; i<App.records.length-1; i++) {
+                const d1 = DateUtil.parse(App.records[i].date);
+                if(d1.getDay() === 6) { 
+                    const next = App.records.find(r => r.date > App.records[i].date); 
+                    if(next && DateUtil.parse(next.date).getDay() === 1 && next.weight <= App.records[i].weight) {
+                        weekendDef = true; break;
+                    }
+                }
+            }
+            
+            // Plateau Break
+            let stableDays = 0;
+            for(let i=1; i<App.records.length; i++) {
+                if(Math.abs(App.records[i].weight - App.records[i-1].weight) < 0.2) stableDays++;
+                else {
+                    if(stableDays >= 7 && (App.records[i].weight < App.records[i-1].weight)) plateauBreak = true;
+                    stableDays = 0;
+                }
+            }
+
+            // BMI Break
+            const h = App.settings.height / 100;
+            const bmiStart = App.settings.startWeight / (h*h);
+            const bmiCurr = s.current / (h*h);
+            const getCat = (b) => b>=CONFIG.BMI.OBESE?'Obese':(b>=CONFIG.BMI.OVER?'Over':'Normal');
+            if(getCat(bmiStart) !== getCat(bmiCurr)) bmiBreak = true;
+
+            // Yoyo Prevention
+            if(s.current <= App.settings.goal1) {
+                const recent = App.records.slice(-10);
+                if(recent.length >= 10 && recent.every(r => Math.abs(r.weight - App.settings.goal1) <= 0.5)) yoyoPrev = true;
+            }
+
+            // Ottogi
+            for(let i=0; i<App.records.length-3; i++) {
+                if(App.records[i+1].weight - App.records[i].weight >= 0.5) {
+                    if(App.records[i+3].weight <= App.records[i].weight) ottogi = true;
+                }
+            }
+
+            // Golden Cross
+            if(App.records.length > 30) {
+                const last7 = App.records.slice(-7).reduce((a,b)=>a+b.weight,0)/7;
+                const last30 = App.records.slice(-30).reduce((a,b)=>a+b.weight,0)/30;
+                if(last7 < last30 - 0.5) goldenCross = true;
+            }
+
+            // Fat Destroyer
+            if(s.lastRec && s.lastRec.fat && s.lastRec.fat < 25) { 
+                fatDestroyer = true;
+            }
+        }
+        
+        const badges = [
+            { id: 'start', name: '시작이 반', icon: '🐣', condition: App.records.length >= 1, desc: '첫 기록을 남겼습니다.' },
+            { id: 'loss3', name: '3kg 감량', icon: '🥉', condition: totalLost >= 3, desc: '총 3kg 이상 감량했습니다.' },
+            { id: 'loss5', name: '5kg 감량', icon: '🥈', condition: totalLost >= 5, desc: '총 5kg 이상 감량했습니다.' },
+            { id: 'loss10', name: '10kg 감량', icon: '🥇', condition: totalLost >= 10, desc: '총 10kg 이상 감량했습니다.' },
+            { id: 'streak3', name: '작심삼일 탈출', icon: '🔥', condition: streak >= 3, desc: '3일 연속으로 감량 또는 유지했습니다.' },
+            { id: 'streak7', name: '일주일 연속', icon: '⚡', condition: streak >= 7, desc: '7일 연속으로 감량 또는 유지했습니다.' },
+            { id: 'digit', name: '앞자리 체인지', icon: '✨', condition: Math.floor(s.current/10) < Math.floor(App.settings.startWeight/10), desc: '체중의 십의 자리 숫자가 바뀌었습니다.' },
+            { id: 'goal', name: '목표 달성', icon: '👑', condition: s.current <= App.settings.goal1, desc: '최종 목표 체중에 도달했습니다.' },
+            { id: 'weekend', name: '주말 방어전', icon: '🛡️', condition: weekendDef, desc: '주말(토~월) 동안 체중이 늘지 않았습니다.' },
+            { id: 'plateau', name: '정체기 탈출', icon: '🧗‍♀️', condition: plateauBreak, desc: '7일 이상의 정체기를 뚫고 감량했습니다.' },
+            { id: 'bmi', name: 'BMI 돌파', icon: '🩸', condition: bmiBreak, desc: 'BMI 단계(비만->과체중->정상)가 개선되었습니다.' },
+            { id: 'yoyo', name: '요요 방지턱', icon: '🧘', condition: yoyoPrev, desc: '목표 달성 후 10일간 체중을 유지했습니다.' },
+            { id: 'ottogi', name: '오뚜기', icon: '💪', condition: ottogi, desc: '급격한 증량 후 3일 내에 다시 복구했습니다.' },
+            { id: 'recordGod', name: '기록의 신', icon: '📝', condition: recordGod, desc: '총 누적 기록 365개를 달성했습니다.' },
+            { id: 'goldenCross', name: '골든 크로스', icon: '📉', condition: goldenCross, desc: '급격한 하락 추세(30일 평균 대비 7일 평균 급감)에 진입했습니다.' },
+            { id: 'fatDestroyer', name: '체지방 파괴자', icon: '🥓', condition: fatDestroyer, desc: '체지방률 25% 미만에 진입했습니다.' }
+        ];
+
+        let html = '';
+        badges.forEach(b => {
+            const cls = b.condition ? 'badge-item unlocked' : 'badge-item';
+            html += `<div class="${cls}" title="${b.desc} (${b.condition ? '획득 완료' : '미획득'})">
+                <span class="badge-icon">${b.icon}</span>
+                <span class="badge-name">${b.name}</span>
+            </div>`;
+        });
+        App.el.badgeGrid.innerHTML = html;
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        App.el[tabId].style.display = 'block';
+        
+        document.querySelectorAll('.filter-group button[id^="tab-btn"]').forEach(b => b.classList.remove('active'));
+        if(tabId.includes('monthly')) App.el['tab-btn-monthly'].classList.add('active');
+        if(tabId.includes('weekly')) App.el['tab-btn-weekly'].classList.add('active');
+        if(tabId.includes('milestone')) App.el['tab-btn-milestone'].classList.add('active');
+        if(tabId.includes('history')) App.el['tab-btn-history'].classList.add('active');
+    }
+
+    function toggleChartExpand(btn) {
+        const card = btn.closest('.card');
+        const backdrop = document.getElementById('chartBackdrop');
+        const isExpanded = card.classList.contains('expanded-card');
+
+        if (!isExpanded) {
+            closeAllExpands();
+        }
+
+        card.classList.toggle('expanded-card');
+        
+        if (card.classList.contains('expanded-card')) {
+            btn.innerText = '✖'; 
+            btn.style.color = 'var(--danger)';
+            backdrop.classList.add('active');
+            document.body.style.overflow = 'hidden'; 
+        } else {
+            btn.innerText = '⛶'; 
+            btn.style.color = '';
+            backdrop.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        setTimeout(() => {
+            const canvas = card.querySelector('canvas');
+            if(canvas) {
+                const chartInstance = Chart.getChart(canvas);
+                if(chartInstance) chartInstance.resize();
+            }
+        }, 50);
+    }
+
+    function closeAllExpands() {
+        const expandedCards = document.querySelectorAll('.expanded-card');
+        const backdrop = document.getElementById('chartBackdrop');
+        
+        expandedCards.forEach(card => {
+            card.classList.remove('expanded-card');
+            const btn = card.querySelector('.expand-btn');
+            if(btn) {
+                btn.innerText = '⛶';
+                btn.style.color = '';
+            }
+        });
+        
+        if(backdrop) backdrop.classList.remove('active');
+        document.body.style.overflow = '';
+        
+        setTimeout(() => {
+            expandedCards.forEach(card => {
+                const canvas = card.querySelector('canvas');
+                if(canvas) {
+                    const chartInstance = Chart.getChart(canvas);
+                    if(chartInstance) chartInstance.resize();
+                }
+            });
+        }, 50);
+    }
+
+    window.App = {
+        init,
+        toggleDarkMode,
+        toggleSettings,
+        saveSettings,
+        addRecord,
+        editRecord, // 이벤트 위임 내부 호출용
+        deleteRecord, // 이벤트 위임 내부 호출용
+        safeResetData,
+        importData,
+        exportCSV,
+        exportJSON,
+        setChartFilter,
+        applyCustomDateRange,
+        updateMainChart,
+        toggleBadges,
+        changeCalendarMonth,
+        jumpToCalendarDate,
+        switchTab,
+        toggleChartExpand,
+        closeAllExpands
+    };
+
+    window.onload = init;
+
+})();
