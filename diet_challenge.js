@@ -1,7 +1,20 @@
 (function() {
     // --- 0. 설정 및 상수 (CONFIG) ---
     const CONFIG = {
-        BMI: { UNDER: 18.5, OVER: 23, OBESE: 25 }, // 한국인 기준 (대한비만학회)
+        // 한국인 기준 (대한비만학회 2020)
+        // 18.5 미만: 저체중
+        // 18.5~22.9: 정상
+        // 23~24.9: 비만 전 단계 (과체중, 위험 체중)
+        // 25~29.9: 1단계 비만
+        // 30~34.9: 2단계 비만
+        // 35 이상: 3단계 비만 (고도 비만)
+        BMI: { 
+            UNDER: 18.5, 
+            NORMAL_END: 23, 
+            PRE_OBESE_END: 25, 
+            OBESE_1_END: 30, 
+            OBESE_2_END: 35 
+        }, 
         LIMITS: { MIN_WEIGHT: 30, MAX_WEIGHT: 300, MIN_FAT: 1, MAX_FAT: 70 },
         COLORS: {
             GAIN: '#ffcdd2', LOSS: '#bbdefb',
@@ -130,6 +143,7 @@
             'maDisparityDisplay', 'weightClassDisplay', 'recoveryScoreDisplay', // 신규 지표 ID 추가
             'advancedAnalysisList', 'calendarContainer',
             'progressBarFill', 'progressEmoji', 'progressText', 'labelStart', 'labelGoal',
+            'bmiProgressBarFill', 'bmiProgressEmoji', 'bmiProgressText', 'bmiLabelLeft', 'bmiLabelRight', // BMI 프로그레스바 ID 추가
             'rate7Days', 'rate30Days', 'weeklyCompareDisplay', 'heatmapGrid', 'chartBackdrop',
             'monthlyTableBody', 'weeklyTableBody', 'milestoneTableBody', 'historyList',
             'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 
@@ -563,12 +577,18 @@
 
         const hMeter = App.settings.height / 100;
         const bmi = (currentW / (hMeter * hMeter)).toFixed(1);
-        // BMI 기준 상수 사용
+        
+        // BMI 기준 적용 (대한비만학회 2020)
         let bmiLabel = '정상';
         if(bmi < CONFIG.BMI.UNDER) bmiLabel = '저체중';
-        else if(bmi >= CONFIG.BMI.OVER && bmi < CONFIG.BMI.OBESE) bmiLabel = '과체중';
-        else if(bmi >= CONFIG.BMI.OBESE) bmiLabel = '비만';
+        else if(bmi < CONFIG.BMI.NORMAL_END) bmiLabel = '정상';
+        else if(bmi < CONFIG.BMI.PRE_OBESE_END) bmiLabel = '비만 전 단계 (과체중, 위험 체중)';
+        else if(bmi < CONFIG.BMI.OBESE_1_END) bmiLabel = '1단계 비만';
+        else if(bmi < CONFIG.BMI.OBESE_2_END) bmiLabel = '2단계 비만';
+        else bmiLabel = '3단계 비만 (고도 비만)';
+        
         App.el.bmiDisplay.innerText = `BMI: ${bmi} (${bmiLabel})`;
+        updateBmiProgressBar(parseFloat(bmi), bmiLabel); // BMI 프로그레스바 업데이트
 
         const percentLost = ((App.settings.startWeight - currentW) / App.settings.startWeight * 100).toFixed(1);
         App.el.percentLostDisplay.innerText = `(시작 체중 대비 ${percentLost > 0 ? '-' : '+'}${Math.abs(percentLost)}%)`;
@@ -972,6 +992,35 @@
             남은: ${safeRemain}kg (${displayRemainPercent}%)
         `;
     }
+
+    function updateBmiProgressBar(bmi, label) {
+        // BMI 스케일 설정 (10 ~ 45)
+        const minScale = 10;
+        const maxScale = 45;
+        
+        let pct = ((bmi - minScale) / (maxScale - minScale)) * 100;
+        let visualPercent = MathUtil.clamp(pct, 0, 100);
+        let rightPos = 100 - visualPercent; // 프로그레스바 스타일은 right 기준이므로
+
+        // DOM 요소 확인 (HTML이 업데이트되지 않았을 경우 대비)
+        if (!App.el.bmiProgressBarFill) return;
+
+        App.el.bmiLabelLeft.innerText = `BMI ${minScale}`;
+        App.el.bmiLabelRight.innerText = `BMI ${maxScale}`;
+
+        // 체중 바와 동일한 스타일 (width 기준이 아니라 right 기준으로 채우는 방식일 수 있으나 
+        // 기존 updateProgressBar를 보면 width로 fill을 채우고 emoji는 right로 제어함)
+        // 기존: width는 왼쪽에서 차오름. emoji right는 100% - width.
+        
+        App.el.bmiProgressBarFill.style.width = `${visualPercent}%`;
+        App.el.bmiProgressEmoji.style.right = `${rightPos}%`;
+        App.el.bmiProgressText.style.right = `${rightPos}%`;
+
+        App.el.bmiProgressText.innerHTML = `
+            <strong>BMI ${bmi}</strong><br>
+            ${label}
+        `;
+    }
     
     function renderAnalysisText() {
         if (App.records.length < 2) {
@@ -1212,10 +1261,10 @@
         const points = data.map(r => ({ x: r.date, y: r.weight }));
         
         const h = App.settings.height / 100;
-        // BMI 기준 상수 사용
+        // BMI 기준 상수 사용 (CONFIG.BMI 활용)
         const w185 = CONFIG.BMI.UNDER * h * h;
-        const w23 = CONFIG.BMI.OVER * h * h;
-        const w25 = CONFIG.BMI.OBESE * h * h;
+        const w23 = CONFIG.BMI.NORMAL_END * h * h;
+        const w25 = CONFIG.BMI.PRE_OBESE_END * h * h;
         
         const chartStart = points.length ? points[0].x : new Date();
         const chartEnd = points.length ? points[points.length-1].x : new Date();
@@ -1258,7 +1307,7 @@
                 borderColor: 'transparent', pointRadius: 0
             },
             {
-                label: '과체중',
+                label: '비만 전 단계',
                 data: [{x: chartStart, y: w25}, {x: chartEnd, y: w25}],
                 fill: { target: {value: w23}, above: isDark ? 'rgba(255, 152, 0, 0.1)' : 'rgba(255, 152, 0, 0.05)' },
                 borderColor: 'transparent', pointRadius: 0
@@ -1333,7 +1382,7 @@
                 legend: {
                     labels: {
                         color: colors.text,
-                        filter: function(item) { return !['비만', '과체중', '정상', 'Bollinger Upper', 'Bollinger Lower'].includes(item.text); }
+                        filter: function(item) { return !['비만', '비만 전 단계', '정상', 'Bollinger Upper', 'Bollinger Lower'].includes(item.text); }
                     }
                 }
             }
@@ -1470,12 +1519,16 @@
 			updateChartHelper(chartKey, ctx, config);
 		};
 		
-        // BMI 게이지 (한국 기준: ~18.5, ~23, ~25, ~30+)
-        createGauge('gaugeBmiChart', bmi, 40, [
+        // BMI 게이지 (한국 기준 업데이트)
+        // 18.5, 23, 25, 30, 35
+        // 누적: 18.5 -> +4.5(23) -> +2(25) -> +5(30) -> +5(35) -> +10(45)
+        createGauge('gaugeBmiChart', bmi, 45, [
             { size: 18.5, color: '#90caf9' }, // 저체중
             { size: 4.5, color: '#a5d6a7' },  // 정상 (18.5~23)
-            { size: 2, color: '#fff59d' },    // 과체중 (23~25)
-            { size: 15, color: '#ef9a9a' }    // 비만 (25+)
+            { size: 2, color: '#fff59d' },    // 비만 전 단계 (23~25)
+            { size: 5, color: '#ffcc80' },    // 1단계 비만 (25~30)
+            { size: 5, color: '#ef9a9a' },    // 2단계 비만 (30~35)
+            { size: 10, color: '#ef5350' }    // 3단계 비만 (35+)
         ], 'gaugeBmi');
 
         // 체지방 게이지 (일반 기준: ~15, ~25, ~35+)
@@ -2112,7 +2165,14 @@
             const h = App.settings.height / 100;
             const bmiStart = App.settings.startWeight / (h*h);
             const bmiCurr = s.current / (h*h);
-            const getCat = (b) => b>=CONFIG.BMI.OBESE?'Obese':(b>=CONFIG.BMI.OVER?'Over':'Normal');
+            const getCat = (b) => {
+                if(b < CONFIG.BMI.UNDER) return 'Under';
+                if(b < CONFIG.BMI.NORMAL_END) return 'Normal';
+                if(b < CONFIG.BMI.PRE_OBESE_END) return 'PreObese';
+                if(b < CONFIG.BMI.OBESE_1_END) return 'Obese1';
+                if(b < CONFIG.BMI.OBESE_2_END) return 'Obese2';
+                return 'Obese3';
+            };
             if(getCat(bmiStart) !== getCat(bmiCurr)) bmiBreak = true;
 
             // Yoyo Prevention

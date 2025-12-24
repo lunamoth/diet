@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 2026 (Ver 3.0.44)</title>
+    <title>💪 다이어트 챌린지 2026 (Ver 3.0.45)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -414,6 +414,26 @@
             <span id="labelGoal">목표: -kg</span>
             <span id="labelStart">시작: -kg</span>
         </div>
+
+        <!-- BMI 프로그레스 바 추가 -->
+        <div style="margin-top: 50px; padding-top: 20px; border-top: 1px dashed #e0e0e0;">
+            <h4 style="margin: 0 0 45px 0; font-size: 0.85rem; color: var(--text-light);">BMI 상태 (대한비만학회 2020 기준)</h4>
+            <div class="progress-track" style="margin-top: 0;">
+                <!-- BMI 바: 왼쪽(낮음) -> 오른쪽(높음) 방향으로 채워짐. 그라데이션 적용 -->
+                <div class="progress-fill" id="bmiProgressBarFill" 
+                     style="left: 0; right: auto; background: linear-gradient(to right, #90caf9, #a5d6a7, #fff59d, #ffcc80, #ef9a9a, #ef5350);"></div>
+                
+                <!-- 현재 위치 표시 -->
+                <div class="progress-indicator-emoji" id="bmiProgressEmoji">📍</div>
+                <div class="progress-info-text" id="bmiProgressText">
+                    BMI 계산 중...
+                </div>
+            </div>
+            <div class="progress-labels" style="margin-top: -35px;">
+                <span id="bmiLabelLeft">BMI 10</span>
+                <span id="bmiLabelRight">BMI 45</span>
+            </div>
+        </div>
     </div>
 
     <!-- 핵심 통계 대시보드 -->
@@ -527,7 +547,7 @@
         <div class="stat-card">
             <span class="stat-icon">🥩</span>
             <div class="stat-value" id="netChangeDisplay">-</div>
-            <div class="stat-label">제지방/체지방 변화</div>
+            <div class="stat-label">지방/체지방 변화</div>
             <div class="stat-sub" id="netChangeSubDisplay" style="font-size:0.65rem;">-</div>
         </div>
         <div class="stat-card">
@@ -589,7 +609,7 @@
         </div>
         <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: var(--text-light);">
             <label><input type="checkbox" id="showTrend" checked onchange="App.updateMainChart()"> 7일 이동평균선(추세) 및 볼린저 밴드 표시</label>
-            <span style="margin-left:15px;">※ 배경색 띠는 BMI 구간(정상/과체중/비만)을 나타냅니다.</span>
+            <span style="margin-left:15px;">※ 배경색 띠는 BMI 구간(정상/비만 전 단계/비만)을 나타냅니다.</span>
         </div>
     </div>
 
