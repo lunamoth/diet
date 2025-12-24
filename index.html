@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 2026 (Ver 3.0.45)</title>
+    <title>💪 다이어트 챌린지 2026 (Ver 3.0.47)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -205,6 +205,13 @@
         /* 히트맵 */
         .heatmap-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 10px 0; max-width: 100%; }
         .heatmap-cell { width: 12px; height: 12px; border-radius: 2px; background-color: var(--heatmap-empty); cursor: pointer; position: relative; }
+        /* 스타일 분리 요청 반영: JS 연동을 위한 히트맵 클래스 추가 */
+        .heatmap-cell.level-gain { background-color: var(--heatmap-gain); }
+        .heatmap-cell.level-1 { background-color: var(--heatmap-1); }
+        .heatmap-cell.level-2 { background-color: var(--heatmap-2); }
+        .heatmap-cell.level-3 { background-color: var(--heatmap-3); }
+        .heatmap-cell.level-4 { background-color: var(--heatmap-4); }
+        
         .heatmap-legend { display: flex; justify-content: flex-end; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--text-light); margin-top: 5px; }
         .legend-box { width: 10px; height: 10px; border-radius: 2px; }
 
@@ -436,6 +443,14 @@
         </div>
     </div>
 
+    <!-- 정체기 돌파 도우미 (신규 추가) -->
+    <div class="card" style="background: linear-gradient(to right, #fdfbfb, #ebedee); border-left: 5px solid var(--accent);">
+        <h3 style="color: var(--accent);">🤖 정체기 돌파 도우미</h3>
+        <div id="plateauHelperText" style="font-size: 0.95rem;">
+            데이터 분석 중...
+        </div>
+    </div>
+
     <!-- 핵심 통계 대시보드 -->
     <div class="dashboard-grid">
         <div class="stat-card">
@@ -584,8 +599,59 @@
             <div class="stat-label">회복 탄력성</div>
             <div class="stat-sub">(증량 후 복구 평균일)</div>
         </div>
+        <!-- 신규 요청 지표 추가 -->
+        <div class="stat-card">
+            <span class="stat-icon">🚨</span>
+            <div class="stat-value" id="yoyoRiskDisplay">-</div>
+            <div class="stat-label">요요 발생 가능성</div>
+            <div class="stat-sub">Yoyo Risk</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">📊</span>
+            <div class="stat-value" id="recent3DayAvgDisplay">-</div>
+            <div class="stat-label">최근 3일간 평균 변동량</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🐎</span>
+            <div class="stat-value" id="weeklySpeedDisplay">-</div>
+            <div class="stat-label">체중 변화 속도 (주단위)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">✨</span>
+            <div class="stat-value" id="idealWeeklyRateDisplay">-</div>
+            <div class="stat-label">이상적인 주간 감량률</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">⚖️</span>
+            <div class="stat-value" id="bodyCompBalanceDisplay">-</div>
+            <div class="stat-label">체성분 균형 지수</div>
+            <div class="stat-sub">제지방 vs 체지방</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">📉</span>
+            <div class="stat-value" id="lossConsistencyDisplay">-</div>
+            <div class="stat-label">감량 일관성 지수</div>
+            <div class="stat-sub">(감량일 비율)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🔥</span>
+            <div class="stat-value" id="calEfficiencyDisplay">-</div>
+            <div class="stat-label">칼로리 컷 효율</div>
+            <div class="stat-sub">예상 TDEE 대비</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">〰️</span>
+            <div class="stat-value" id="volatilityIndexDisplay">-</div>
+            <div class="stat-label">체중 변동성 지수</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">📉</span>
+            <div class="stat-value" id="bodyCompTrendDisplay">-</div>
+            <div class="stat-label">체성분 변화 추이</div>
+            <div class="stat-sub">월별/분기별</div>
+        </div>
     </div>
-
+    
     <!-- 메인 차트 영역 -->
     <div class="card">
         <h3>📈 체중 변화 그래프 (시계열) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
@@ -611,6 +677,12 @@
             <label><input type="checkbox" id="showTrend" checked onchange="App.updateMainChart()"> 7일 이동평균선(추세) 및 볼린저 밴드 표시</label>
             <span style="margin-left:15px;">※ 배경색 띠는 BMI 구간(정상/비만 전 단계/비만)을 나타냅니다.</span>
         </div>
+    </div>
+
+    <!-- 캘린더 뷰 -->
+    <div class="card">
+        <h3>📅 월별 기록 흐름 (Calendar View)</h3>
+        <div id="calendarContainer"></div>
     </div>
 
     <!-- 추가 분석 차트 -->
@@ -683,12 +755,13 @@
                 <canvas id="rocChart"></canvas>
             </div>
         </div>
-    </div>
-
-    <!-- 캘린더 뷰 -->
-    <div class="card">
-        <h3>📅 월별 기록 흐름 (Calendar View)</h3>
-        <div id="calendarContainer"></div>
+        <!-- 신규 차트: 주간별 체성분 변화 누적 -->
+        <div class="card">
+            <h3>📉 주간별 체성분 변화 누적 <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="weeklyBodyCompChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- 상세 분석 영역 -->
@@ -742,6 +815,34 @@
         <ul class="insight-list" id="advancedAnalysisList">
             <li class="insight-item">데이터를 수집중입니다...</li>
         </ul>
+    </div>
+
+    <!-- 기간별 기록 비교 (신규 추가) -->
+    <div class="card">
+        <h3>📅 기간별 요약 및 비교</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>구분</th>
+                    <th>평균 체중 (kg)</th>
+                    <th>총 감량 (kg)</th>
+                    <th>평균 감량 속도</th>
+                </tr>
+            </thead>
+            <tbody id="periodCompareTable">
+                <tr><td colspan="4">데이터 로딩 중...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 상세 통계 분석 (신규 추가) -->
+    <div class="card">
+        <h3>📊 상세 통계 지표</h3>
+        <table class="data-table">
+            <tbody id="detailedStatsTable">
+                <tr><td colspan="2">데이터 분석 중...</td></tr>
+            </tbody>
+        </table>
     </div>
 
     <!-- 🏆 업적 및 뱃지 -->
