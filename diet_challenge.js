@@ -994,9 +994,9 @@
     }
 
     function updateBmiProgressBar(bmi, label) {
-        // BMI 스케일 설정 (10 ~ 45)
+        // BMI 스케일 설정 (10 ~ 35)
         const minScale = 10;
-        const maxScale = 45;
+        const maxScale = 35;
         
         let pct = ((bmi - minScale) / (maxScale - minScale)) * 100;
         let visualPercent = MathUtil.clamp(pct, 0, 100);
@@ -1522,13 +1522,13 @@
         // BMI 게이지 (한국 기준 업데이트)
         // 18.5, 23, 25, 30, 35
         // 누적: 18.5 -> +4.5(23) -> +2(25) -> +5(30) -> +5(35) -> +10(45)
-        createGauge('gaugeBmiChart', bmi, 45, [
+        createGauge('gaugeBmiChart', bmi, 35, [
             { size: 18.5, color: '#90caf9' }, // 저체중
             { size: 4.5, color: '#a5d6a7' },  // 정상 (18.5~23)
             { size: 2, color: '#fff59d' },    // 비만 전 단계 (23~25)
             { size: 5, color: '#ffcc80' },    // 1단계 비만 (25~30)
             { size: 5, color: '#ef9a9a' },    // 2단계 비만 (30~35)
-            { size: 10, color: '#ef5350' }    // 3단계 비만 (35+)
+            // { size: 10, color: '#ef5350' }    // 3단계 비만 (35+)
         ], 'gaugeBmi');
 
         // 체지방 게이지 (일반 기준: ~15, ~25, ~35+)
