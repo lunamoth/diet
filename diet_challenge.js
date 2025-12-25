@@ -1099,7 +1099,7 @@
         });
         if(maxVal > 1.0) {
             html += `<li class="insight-item"><span class="insight-label">🍂 시즈널리티:</span> 
-                "사용자님은 <strong>${worstMonth}월</strong>에 체중이 증가하는 경향이 있습니다. 해당 시기에 활동량 저하를 주의하세요."</li>`;
+                "<strong>${worstMonth}월</strong>에 체중이 증가하는 경향이 있습니다. 해당 시기에 활동량 저하를 주의하세요."</li>`;
         }
 
         // 심층 분석 1: 치팅 데이 여파 분석
