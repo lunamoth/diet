@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 2026 (Ver 3.0.48)</title>
+    <title>💪 다이어트 챌린지 2026 (Ver 3.0.49)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -60,6 +60,16 @@
         .flex-center { display: flex; justify-content: center; align-items: center; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
         
+        /* 텍스트 색상 유틸리티 (JS 인라인 스타일 대체) */
+        .text-primary { color: var(--primary) !important; }
+        .text-primary-dark { color: var(--primary-dark) !important; }
+        .text-secondary { color: var(--secondary) !important; }
+        .text-secondary-dark { color: var(--secondary-dark) !important; }
+        .text-danger { color: var(--danger) !important; }
+        .text-accent { color: var(--accent) !important; }
+        .text-default { color: var(--text) !important; }
+        .text-light { color: var(--text-light) !important; }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg);
@@ -115,7 +125,9 @@
         body.dark-mode .card h3 { border-bottom-color: #333; }
 
         /* 입력 폼 */
-        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+        .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; transition: background-color 0.5s; }
+        .input-group.highlight { background-color: rgba(76, 175, 80, 0.1); border-radius: 10px; padding: 5px; margin: -5px; }
+
         .input-wrapper { flex: 1; min-width: 100px; }
         label { display: block; font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px; font-weight: bold; }
         input, select { 
@@ -205,8 +217,10 @@
         /* 히트맵 */
         .heatmap-container { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; padding: 10px 0; max-width: 100%; }
         .heatmap-cell { width: 12px; height: 12px; border-radius: 2px; background-color: var(--heatmap-empty); cursor: pointer; position: relative; }
-        /* 스타일 분리 요청 반영: JS 연동을 위한 히트맵 클래스 추가 */
+        
+        /* 스타일 분리: JS 연동을 위한 히트맵 클래스 */
         .heatmap-cell.level-gain { background-color: var(--heatmap-gain); }
+        .heatmap-cell.level-0 { background-color: var(--heatmap-empty); }
         .heatmap-cell.level-1 { background-color: var(--heatmap-1); }
         .heatmap-cell.level-2 { background-color: var(--heatmap-2); }
         .heatmap-cell.level-3 { background-color: var(--heatmap-3); }
@@ -367,7 +381,7 @@
         </p>
 
         <div class="danger-zone">
-            <h4 style="color: var(--danger); margin-top:0;">⚠️ 위험 구역</h4>
+            <h4 class="text-danger" style="margin-top:0;">⚠️ 위험 구역</h4>
             <p style="font-size: 0.9rem; margin-bottom: 10px;">모든 데이터를 삭제하려면 <strong>"초기화"</strong>라고 입력하세요.</p>
             <div style="display: flex; gap: 10px;">
                 <input type="text" id="resetConfirmInput" placeholder="초기화 입력" style="max-width: 150px;">
@@ -379,7 +393,7 @@
     <!-- 입력 영역 (Enter 키 이벤트 지원) -->
     <div class="card">
         <h3>📅 오늘의 기록</h3>
-        <div class="input-group">
+        <div class="input-group" id="recordInputGroup">
             <div class="input-wrapper">
                 <label>날짜</label>
                 <input type="date" id="dateInput">
@@ -445,7 +459,7 @@
 
     <!-- 정체기 돌파 도우미 (신규 추가) -->
     <div class="card" style="background: linear-gradient(to right, #fdfbfb, #ebedee); border-left: 5px solid var(--accent);">
-        <h3 style="color: var(--accent);">🤖 정체기 돌파 도우미</h3>
+        <h3 class="text-accent">🤖 정체기 돌파 도우미</h3>
         <div id="plateauHelperText" style="font-size: 0.95rem;">
             데이터 분석 중...
         </div>

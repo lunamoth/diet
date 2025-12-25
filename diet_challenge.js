@@ -2,12 +2,6 @@
     // --- 0. 설정 및 상수 (CONFIG) ---
     const CONFIG = {
         // 한국인 기준 (대한비만학회 2020)
-        // 18.5 미만: 저체중
-        // 18.5~22.9: 정상
-        // 23~24.9: 비만 전 단계 (과체중, 위험 체중)
-        // 25~29.9: 1단계 비만
-        // 30~34.9: 2단계 비만
-        // 35 이상: 3단계 비만 (고도 비만)
         BMI: { 
             UNDER: 18.5, 
             NORMAL_END: 23, 
@@ -16,11 +10,14 @@
             OBESE_2_END: 35 
         }, 
         LIMITS: { MIN_WEIGHT: 30, MAX_WEIGHT: 300, MIN_FAT: 1, MAX_FAT: 70 },
+        // CSS 변수명과 매핑되는 차트 색상값 (DomUtil에서 실제 값을 읽어옴)
         COLORS: {
-            GAIN: '#ffcdd2', LOSS: '#bbdefb',
-            WEEKEND: '#F44336', WEEKDAY: '#4CAF50'
+            GAIN: 'var(--heatmap-gain)', // #ffcdd2
+            LOSS: 'var(--secondary)',    // #bbdefb (실제값은 theme에 따라 다름)
+            WEEKEND: '#F44336', 
+            WEEKDAY: '#4CAF50'
         },
-        // 복싱 체급 기준 (일반적인 프로 기준 참고)
+        // 복싱 체급 기준
         WEIGHT_CLASSES: [
             { name: "헤비급", min: 90.7 },
             { name: "크루저급", min: 79.4 },
@@ -39,6 +36,37 @@
             { name: "플라이급", min: 49.0 },
             { name: "라이트플라이급", min: 47.6 },
             { name: "미니멈급", min: 0 }
+        ],
+        // 뱃지 정의 (상수 관리)
+        BADGES: [
+            { id: 'start', name: '시작이 반', icon: '🐣', desc: '첫 기록을 남겼습니다.' },
+            { id: 'holiday', name: '홀리데이 서바이버', icon: '🎅', desc: '명절/연말 전후 증량을 0.5kg 미만으로 막아냈습니다.' },
+            { id: 'zombie', name: '돌아온 탕아', icon: '🧟', desc: '15일 이상의 공백을 깨고 다시 기록을 시작했습니다.' },
+            { id: 'sniper', name: '스나이퍼', icon: '🎯', desc: '목표 체중을 소수점까지 정확하게 명중시켰습니다.' },
+            { id: 'coaster', name: '롤러코스터', icon: '🎢', desc: '하루 만에 1.5kg 이상의 급격한 변화를 경험했습니다.' },
+            { id: 'zen', name: '평정심', icon: '🧘', desc: '7일 연속으로 체중 변동 폭이 0.1kg 이내로 유지되었습니다.' },
+            { id: 'loss3', name: '3kg 감량', icon: '🥉', desc: '총 3kg 이상 감량했습니다.' },
+            { id: 'loss5', name: '5kg 감량', icon: '🥈', desc: '총 5kg 이상 감량했습니다.' },
+            { id: 'loss10', name: '10kg 감량', icon: '🥇', desc: '총 10kg 이상 감량했습니다.' },
+            { id: 'streak3', name: '작심삼일 탈출', icon: '🔥', desc: '3일 연속으로 감량 또는 유지했습니다.' },
+            { id: 'streak7', name: '일주일 연속', icon: '⚡', desc: '7일 연속으로 감량 또는 유지했습니다.' },
+            { id: 'digit', name: '앞자리 체인지', icon: '✨', desc: '체중의 십의 자리 숫자가 바뀌었습니다.' },
+            { id: 'goal', name: '목표 달성', icon: '👑', desc: '최종 목표 체중에 도달했습니다.' },
+            { id: 'weekend', name: '주말 방어전', icon: '🛡️', desc: '주말(토~월) 동안 체중이 늘지 않았습니다.' },
+            { id: 'plateau', name: '정체기 탈출', icon: '🧗‍♀️', desc: '7일 이상의 정체기를 뚫고 감량했습니다.' },
+            { id: 'bmi', name: 'BMI 돌파', icon: '🩸', desc: 'BMI 단계(비만->과체중->정상)가 개선되었습니다.' },
+            { id: 'yoyo', name: '요요 방지턱', icon: '🧘', desc: '목표 달성 후 10일간 체중을 유지했습니다.' },
+            { id: 'ottogi', name: '오뚜기', icon: '💪', desc: '급격한 증량 후 3일 내에 다시 복구했습니다.' },
+            { id: 'recordGod', name: '기록의 신', icon: '📝', desc: '총 누적 기록 365개를 달성했습니다.' },
+            { id: 'goldenCross', name: '골든 크로스', icon: '📉', desc: '급격한 하락 추세(30일 평균 대비 7일 평균 급감)에 진입했습니다.' },
+            { id: 'fatDestroyer', name: '체지방 파괴자', icon: '🥓', desc: '체지방률 25% 미만에 진입했습니다.' },
+            { id: 'plateauMaster', name: '정체기 끝판왕', icon: '🧱', desc: '7일 이상 변동 없다가 0.5kg 이상 감량했습니다.' },
+            { id: 'recordMaster', name: '기록의 달인', icon: '📅', desc: '90일 연속으로 기록했습니다.' },
+            { id: 'reborn', name: '다시 태어난', icon: '🦋', desc: '최고 체중에서 10kg 이상 감량했습니다.' },
+            { id: 'slowSteady', name: '슬로우 앤 스테디', icon: '🐢', desc: '3개월간 월평균 2kg 이하로 꾸준히 감량했습니다.' },
+            { id: 'weightExpert', name: '체중 변화 전문가', icon: '🎓', desc: '1개월간 4kg 이상 감량했습니다.' },
+            { id: 'plateauDestroyer', name: '정체기 파괴자', icon: '🔨', desc: '2주 이상의 정체기를 극복했습니다.' },
+            { id: 'iconOfConstancy', name: '꾸준함의 아이콘', icon: '🗿', desc: '6개월 이상 연속 기록을 유지했습니다.' }
         ]
     };
 
@@ -73,11 +101,14 @@
     };
 
     const MathUtil = {
+        // 부동소수점 오차 보정을 위한 연산 메서드
         round: (num, decimals = 1) => {
+            if (num === null || num === undefined) return 0;
             const factor = Math.pow(10, decimals);
             return Math.round((num + Number.EPSILON) * factor) / factor;
         },
         diff: (a, b) => MathUtil.round(a - b),
+        add: (a, b) => MathUtil.round(a + b),
         clamp: (num, min, max) => Math.min(Math.max(num, min), max),
         stdDev: (arr) => {
             if (arr.length === 0) return 0;
@@ -104,8 +135,18 @@
                 text: styles.getPropertyValue('--chart-text').trim(),
                 primary: styles.getPropertyValue('--primary').trim(),
                 secondary: styles.getPropertyValue('--secondary').trim(),
-                danger: styles.getPropertyValue('--danger').trim()
+                danger: styles.getPropertyValue('--danger').trim(),
+                accent: styles.getPropertyValue('--accent').trim()
             };
+        },
+        // CSS 클래스 기반 텍스트 색상 변경 헬퍼
+        setTextColor: (el, colorType) => {
+            el.className = el.className.replace(/\btext-\S+/g, ''); // 기존 text- 클래스 제거
+            if (colorType === 'danger') el.classList.add('text-danger');
+            else if (colorType === 'primary') el.classList.add('text-primary');
+            else if (colorType === 'secondary') el.classList.add('text-secondary');
+            else if (colorType === 'accent') el.classList.add('text-accent');
+            else if (colorType === 'default') el.classList.add('text-default');
         }
     };
 
@@ -141,7 +182,7 @@
     function init() {
         const ids = [
             'dateInput', 'weightInput', 'fatInput', 'userHeight', 'startWeight', 'goal1Weight', 'dailyIntake',
-            'settingsPanel', 'badgeGrid', 'csvFileInput', 'resetConfirmInput',
+            'settingsPanel', 'badgeGrid', 'csvFileInput', 'resetConfirmInput', 'recordInputGroup',
             'chartStartDate', 'chartEndDate', 'showTrend',
             'currentWeightDisplay', 'totalLostDisplay', 'percentLostDisplay', 'progressPercent',
             'remainingWeightDisplay', 'remainingPercentDisplay', 'bmiDisplay', 'predictedDate',
@@ -164,9 +205,14 @@
         
         AppState.el.dateInput.valueAsDate = new Date();
         
-        AppState.records = JSON.parse(localStorage.getItem(AppState.STORAGE_KEY)) || [];
-        const savedSettings = JSON.parse(localStorage.getItem(AppState.SETTINGS_KEY));
-        if (savedSettings) AppState.settings = savedSettings;
+        try {
+            AppState.records = JSON.parse(localStorage.getItem(AppState.STORAGE_KEY)) || [];
+            const savedSettings = JSON.parse(localStorage.getItem(AppState.SETTINGS_KEY));
+            if (savedSettings) AppState.settings = savedSettings;
+        } catch (e) {
+            console.error('Data Load Error', e);
+            AppState.records = [];
+        }
 
         AppState.chartFilterMode = localStorage.getItem(AppState.FILTER_KEY) || 'ALL';
         if(localStorage.getItem('diet_pro_dark_mode') === 'true') {
@@ -208,13 +254,17 @@
         updateUI();
     }
 
-    // --- 3. 기본 기능 (디바운스 적용) ---
+    // --- 3. 기본 기능 (디바운스 적용 및 로컬 스토리지 최적화) ---
     const debouncedSaveRecords = debounce(() => {
-        localStorage.setItem(AppState.STORAGE_KEY, JSON.stringify(AppState.records));
+        if (AppState.state.isDirty) {
+            localStorage.setItem(AppState.STORAGE_KEY, JSON.stringify(AppState.records));
+        }
     }, 500);
 
     const debouncedSaveSettings = debounce(() => {
-        localStorage.setItem(AppState.SETTINGS_KEY, JSON.stringify(AppState.settings));
+        if (AppState.state.isDirty) {
+            localStorage.setItem(AppState.SETTINGS_KEY, JSON.stringify(AppState.settings));
+        }
     }, 500);
 
     function showToast(message) {
@@ -240,8 +290,12 @@
         document.body.classList.toggle('dark-mode');
         localStorage.setItem('diet_pro_dark_mode', document.body.classList.contains('dark-mode'));
         // 차트 색상 완전 갱신을 위해 파괴 후 재생성
-        Object.values(AppState.charts).forEach(chart => { if(chart) chart.destroy(); });
-        AppState.charts = { main: null, dow: null, hist: null, cumul: null, monthly: null, fat: null, scatter: null, weekend: null, bodyComp: null, boxPlot: null, roc: null, ghostRunner: null, gaugeBmi: null, gaugeFat: null, weeklyBodyComp: null };
+        Object.keys(AppState.charts).forEach(key => { 
+            if(AppState.charts[key]) {
+                AppState.charts[key].destroy(); 
+                AppState.charts[key] = null;
+            }
+        });
         updateUI(); 
     }
 
@@ -294,7 +348,6 @@
                 // 날짜 변경 시
                 if (existingIndex >= 0) {
                     if (!confirm(`${date}에 이미 기록이 있습니다. 덮어쓰시겠습니까?`)) return;
-                    // 덮어쓰기: 기존 것 제거 후 현재 데이터로 대체 (인덱스 유지보단 재정렬이 안전)
                     AppState.records = AppState.records.filter(r => r.date !== AppState.state.editingDate && r.date !== date);
                     AppState.records.push(record);
                 } else {
@@ -364,10 +417,9 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
             showToast(`${date} 기록을 수정합니다.`);
             
-            const inputGroup = document.querySelector('.input-group');
-            inputGroup.style.transition = "background-color 0.5s";
-            inputGroup.style.backgroundColor = "rgba(76, 175, 80, 0.1)";
-            setTimeout(() => inputGroup.style.backgroundColor = "transparent", 1000);
+            const inputGroup = AppState.el.recordInputGroup;
+            inputGroup.classList.add('highlight');
+            setTimeout(() => inputGroup.classList.remove('highlight'), 1000);
         }
     }
 
@@ -486,7 +538,8 @@
     function updateUI() {
         if(AppState.state.isDirty) {
             AppState.state.statsCache = analyzeRecords(AppState.records);
-            AppState.state.isDirty = false;
+            // 저장 로직은 debouncedSaveRecords에서 처리하므로 여기서는 flag 유지
+            // 단, UI 렌더링을 위해 캐시는 갱신함.
         }
         const s = AppState.state.statsCache;
         
@@ -521,6 +574,12 @@
         renderCalendarView(); 
         renderAllTables();
         renderBadges(s);
+
+        // UI 갱신 후 dirty 상태 해제는 실제 저장 시점과 별개일 수 있으나
+        // 로직 단순화를 위해 여기서 해제하지 않고 debouncedSaveRecords에 위임하거나
+        // 저장 후 false로 변경해야 하나, 여기서는 저장이 비동기(debounce)이므로
+        // 다음 입력 전까지는 변경사항이 반영된 상태로 유지.
+        // *참고: isDirty 플래그는 저장 트리거용으로 사용됨.
     }
 
     // --- 5. 분석 계산 로직 (중복 연산 제거를 위한 통합) ---
@@ -540,7 +599,7 @@
 
         if (records.length > 1) {
             for (let i = 1; i < records.length; i++) {
-                const diff = records[i].weight - records[i-1].weight;
+                const diff = MathUtil.diff(records[i].weight, records[i-1].weight);
                 diffs.push(diff);
 
                 if (diff <= 0) curStreak++;
@@ -572,17 +631,17 @@
         if(firstFatRec && lastFatRec) {
             const startFatKg = firstFatRec.weight * (firstFatRec.fat / 100);
             const endFatKg = lastFatRec.weight * (lastFatRec.fat / 100);
-            fatChange = endFatKg - startFatKg;
+            fatChange = MathUtil.diff(endFatKg, startFatKg);
             
             const startLbmKg = firstFatRec.weight * (1 - firstFatRec.fat / 100);
             const endLbmKg = lastFatRec.weight * (1 - lastFatRec.fat / 100);
-            lbmChange = endLbmKg - startLbmKg;
+            lbmChange = MathUtil.diff(endLbmKg, startLbmKg);
         }
 
         // 4. 최장 정체기
         let maxPlateau = 0, curPlateau = 0;
         for(let i=1; i<records.length; i++) {
-            if(Math.abs(records[i].weight - records[i-1].weight) < 0.2) curPlateau++;
+            if(Math.abs(MathUtil.diff(records[i].weight, records[i-1].weight)) < 0.2) curPlateau++;
             else curPlateau = 0;
             if(curPlateau > maxPlateau) maxPlateau = curPlateau;
         }
@@ -606,11 +665,11 @@
         
         AppState.el.currentWeightDisplay.innerText = currentW.toFixed(1) + 'kg';
         AppState.el.totalLostDisplay.innerText = `${totalLost}kg`;
-        AppState.el.totalLostDisplay.style.color = totalLost > 0 ? 'var(--primary-dark)' : (totalLost < 0 ? 'var(--danger)' : 'var(--text)');
+        DomUtil.setTextColor(AppState.el.totalLostDisplay, totalLost > 0 ? 'primary' : (totalLost < 0 ? 'danger' : 'default'));
 
         let pct = 0;
-        const totalGap = AppState.settings.startWeight - AppState.settings.goal1;
-        const currentGap = AppState.settings.startWeight - currentW;
+        const totalGap = MathUtil.diff(AppState.settings.startWeight, AppState.settings.goal1);
+        const currentGap = MathUtil.diff(AppState.settings.startWeight, currentW);
         if(Math.abs(totalGap) > 0.01) {
              pct = (currentGap / totalGap) * 100;
         }
@@ -622,7 +681,7 @@
         const remaining = MathUtil.diff(currentW, AppState.settings.goal1);
         const remainingDisplay = AppState.el.remainingWeightDisplay;
         remainingDisplay.innerText = `${remaining > 0 ? remaining : 0}kg`;
-        remainingDisplay.style.color = remaining <= 0 ? 'var(--secondary-dark)' : 'var(--text)';
+        DomUtil.setTextColor(remainingDisplay, remaining <= 0 ? 'secondary' : 'default');
 
         let remainingPct = 0;
         if(totalGap !== 0) {
@@ -665,20 +724,20 @@
         AppState.el.weeklyCompareDisplay.innerText = getWeeklyComparison();
 
         AppState.el.minMaxWeightDisplay.innerHTML = `
-            <span style="color:var(--danger)">${(s.max||0).toFixed(1)}kg</span> / 
-            <span style="color:var(--primary)">${(s.min||0).toFixed(1)}kg</span>
+            <span class="text-danger">${(s.max||0).toFixed(1)}kg</span> / 
+            <span class="text-primary">${(s.min||0).toFixed(1)}kg</span>
         `;
         
         AppState.el.dailyVolatilityDisplay.innerHTML = `
-            <span style="color:var(--primary)">▼${(s.maxDrop||0).toFixed(1)}</span> / 
-            <span style="color:var(--danger)">▲${(s.maxGain||0).toFixed(1)}</span>
+            <span class="text-primary">▼${(s.maxDrop||0).toFixed(1)}</span> / 
+            <span class="text-danger">▲${(s.maxGain||0).toFixed(1)}</span>
         `;
 
         AppState.el.weeklyAvgDisplay.innerText = calculateWeeklyAvg() + 'kg';
         
         const monComp = calculateMonthlyComparison();
         AppState.el.monthCompareDisplay.innerText = monComp;
-        AppState.el.monthCompareDisplay.style.color = monComp.includes('▼') ? 'var(--primary)' : (monComp.includes('▲') ? 'var(--danger)' : 'var(--text)');
+        DomUtil.setTextColor(AppState.el.monthCompareDisplay, monComp.includes('▼') ? 'primary' : (monComp.includes('▲') ? 'danger' : 'default'));
     }
 
     function renderNewStats(s) {
@@ -691,9 +750,9 @@
         if(AppState.records.length >= 7) {
             const last7 = AppState.records.slice(-7);
             const avg7 = last7.reduce((a,b)=>a+b.weight, 0) / 7;
-            const disparity = currentW - avg7;
+            const disparity = MathUtil.diff(currentW, avg7);
             AppState.el.maDisparityDisplay.innerText = (disparity > 0 ? '+' : '') + disparity.toFixed(2) + 'kg';
-            AppState.el.maDisparityDisplay.style.color = disparity > 0 ? 'var(--danger)' : 'var(--primary)';
+            DomUtil.setTextColor(AppState.el.maDisparityDisplay, disparity > 0 ? 'danger' : 'primary');
         } else {
             AppState.el.maDisparityDisplay.innerText = '수집중';
         }
@@ -705,7 +764,7 @@
         // 신규 지표 3: 회복 탄력성 (Recovery Score)
         let recoveries = [];
         for(let i=1; i<AppState.records.length-1; i++) {
-            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
             if(diff >= 0.5) { // 0.5kg 이상 증량을 '치팅/스파이크'로 간주
                 const baseWeight = AppState.records[i-1].weight;
                 let daysToRecover = 0;
@@ -747,7 +806,7 @@
             const last = recentRecs[recentRecs.length-1];
             const days = DateUtil.daysBetween(DateUtil.parse(first.date), DateUtil.parse(last.date));
             if(days > 0) {
-                const lossKg = first.weight - last.weight;
+                const lossKg = MathUtil.diff(first.weight, last.weight);
                 const dailyLoss = lossKg / days;
                 const userIntake = AppState.settings.intake || 2000;
                 const estimatedTdee = userIntake + (dailyLoss * 7700);
@@ -769,7 +828,7 @@
             if(AppState.el.calEfficiencyDisplay) AppState.el.calEfficiencyDisplay.innerText = '-';
         }
 
-        const totalLost = AppState.settings.startWeight - s.current;
+        const totalLost = MathUtil.diff(AppState.settings.startWeight, s.current);
         const totalDays = DateUtil.daysBetween(startD, lastD) || 1;
         const weeklyEff = (totalLost / totalDays) * 7;
         AppState.el.weeklyEffDisplay.innerText = `${weeklyEff.toFixed(2)} kg/주`;
@@ -777,7 +836,7 @@
         if(AppState.records.length >= 3) {
             const r3 = AppState.records[AppState.records.length-3];
             const r1 = AppState.records[AppState.records.length-1];
-            const diff3 = r1.weight - r3.weight;
+            const diff3 = MathUtil.diff(r1.weight, r3.weight);
             let msg = "안정";
             if(diff3 < -0.4) msg = "📉 급하락";
             else if(diff3 < 0) msg = "↘ 하락세";
@@ -785,7 +844,7 @@
             else if(diff3 > 0) msg = "↗ 상승세";
             
             AppState.el.shortTrendDisplay.innerText = msg;
-            AppState.el.shortTrendDisplay.style.color = diff3 > 0 ? 'var(--danger)' : (diff3 < 0 ? 'var(--primary)' : 'var(--text)');
+            DomUtil.setTextColor(AppState.el.shortTrendDisplay, diff3 > 0 ? 'danger' : (diff3 < 0 ? 'primary' : 'default'));
             
             // 신규 지표: 최근 3일간 평균 변동량
             const avgDiff3 = diff3 / 2; // (오늘-그제) / 2일간
@@ -798,14 +857,14 @@
         if(AppState.records.length >= 7) {
              const last7 = AppState.records.slice(-7);
              const avg7 = last7.reduce((a,b)=>a+b.weight,0)/last7.length;
-             const dev = s.current - avg7;
+             const dev = MathUtil.diff(s.current, avg7);
              AppState.el.waterIndexDisplay.innerText = (dev > 0 ? '+' : '') + dev.toFixed(1) + 'kg';
-             AppState.el.waterIndexDisplay.style.color = dev > 0.5 ? 'var(--danger)' : (dev < -0.5 ? 'var(--primary)' : 'var(--text)');
+             DomUtil.setTextColor(AppState.el.waterIndexDisplay, dev > 0.5 ? 'danger' : (dev < -0.5 ? 'primary' : 'default'));
              
              // 신규 지표: 체중 변화 속도 (주단위)
              const startW7 = last7[0].weight;
              const endW7 = last7[last7.length-1].weight;
-             const wSpeed = endW7 - startW7;
+             const wSpeed = MathUtil.diff(endW7, startW7);
              if(AppState.el.weeklySpeedDisplay) AppState.el.weeklySpeedDisplay.innerText = `${wSpeed.toFixed(2)} kg/주`;
              
              // 신규 지표: 체중 변동성 지수
@@ -821,13 +880,13 @@
              if(dev > 1.0) riskScore += 30; // 최근 급증
              
              let riskLabel = '낮음';
-             let riskColor = 'var(--primary)';
-             if(riskScore >= 70) { riskLabel = '높음'; riskColor = 'var(--danger)'; }
-             else if(riskScore >= 40) { riskLabel = '중간'; riskColor = 'var(--accent)'; }
+             let riskColor = 'primary';
+             if(riskScore >= 70) { riskLabel = '높음'; riskColor = 'danger'; }
+             else if(riskScore >= 40) { riskLabel = '중간'; riskColor = 'accent'; }
              
              if(AppState.el.yoyoRiskDisplay) {
                  AppState.el.yoyoRiskDisplay.innerText = `${riskScore}점 (${riskLabel})`;
-                 AppState.el.yoyoRiskDisplay.style.color = riskColor;
+                 DomUtil.setTextColor(AppState.el.yoyoRiskDisplay, riskColor);
              }
 
         } else {
@@ -841,11 +900,11 @@
         if(startRecWithFat && lastRec.fat) {
              const startFatKg = startRecWithFat.weight * (startRecWithFat.fat/100);
              const currFatKg = lastRec.weight * (lastRec.fat/100);
-             const fatLoss = startFatKg - currFatKg;
+             const fatLoss = MathUtil.diff(startFatKg, currFatKg);
              
              const startLeanKg = startRecWithFat.weight * (1 - startRecWithFat.fat/100);
              const currLeanKg = lastRec.weight * (1 - lastRec.fat/100);
-             const leanLoss = startLeanKg - currLeanKg;
+             const leanLoss = MathUtil.diff(startLeanKg, currLeanKg);
              
              const totalLoss = fatLoss + leanLoss;
              const fatRatio = totalLoss > 0 ? (fatLoss/totalLoss)*100 : 0;
@@ -885,7 +944,7 @@
             if(AppState.el.lossConsistencyDisplay) AppState.el.lossConsistencyDisplay.innerText = '-';
         }
 
-        const remW = s.current - AppState.settings.goal1;
+        const remW = MathUtil.diff(s.current, AppState.settings.goal1);
         if(remW > 0) {
             const calToLose = remW * 7700;
             const daysToGoal = 90;
@@ -922,7 +981,7 @@
         const dayCounts = [0,0,0,0,0,0,0];
         for(let i=1; i<AppState.records.length; i++) {
             const d = DateUtil.parse(AppState.records[i].date).getDay();
-            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
             dayDeltas[d] += diff;
             dayCounts[d]++;
         }
@@ -938,7 +997,7 @@
         // 신규 심층 분석 1: 치팅 데이 여파 분석
         const recoveries = [];
         for(let i=1; i<AppState.records.length; i++) {
-            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
             if(diff >= 0.4) {
                 const spikeDay = DateUtil.parse(AppState.records[i].date).getDay();
                 let found = false;
@@ -966,7 +1025,7 @@
         for(let i=10; i<AppState.records.length; i++) {
             const zone = Math.floor(AppState.records[i].weight);
             if(!zones[zone]) zones[zone] = [];
-            const diff = AppState.records[i-1].weight - AppState.records[i].weight;
+            const diff = MathUtil.diff(AppState.records[i-1].weight, AppState.records[i].weight);
             zones[zone].push(diff);
         }
         const zoneStats = Object.keys(zones).map(z => {
@@ -982,7 +1041,7 @@
 
         let maxPlateau = 0, currPlateau = 0;
         for(let i=1; i<AppState.records.length; i++) {
-            const diff = Math.abs(AppState.records[i].weight - AppState.records[i-1].weight);
+            const diff = Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight));
             if(diff < 0.2) currPlateau++;
             else currPlateau = 0;
             if(currPlateau > maxPlateau) maxPlateau = currPlateau;
@@ -1003,7 +1062,7 @@
                 변동성 점수 <strong>${Math.round(volScore)}점</strong> (${volMsg}) 입니다.</li>`;
         }
 
-        const remaining = s.current - AppState.settings.goal1;
+        const remaining = MathUtil.diff(s.current, AppState.settings.goal1);
         if(remaining > 0) {
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - 30);
@@ -1045,7 +1104,7 @@
         if(thisMonthRecs.length > 3) {
             const startW = thisMonthRecs[0].weight;
             const endW = thisMonthRecs[thisMonthRecs.length-1].weight;
-            const loss = startW - endW;
+            const loss = MathUtil.diff(startW, endW);
             const uniqueDays = new Set(thisMonthRecs.map(r => r.date)).size;
             const daysInMonth = now.getDate();
             const consistency = (uniqueDays / daysInMonth) * 100;
@@ -1061,9 +1120,9 @@
 
         if(AppState.records.length > 7) {
             const last7 = AppState.records.slice(-7);
-            const totalDrop = last7[0].weight - last7[last7.length-1].weight;
+            const totalDrop = MathUtil.diff(last7[0].weight, last7[last7.length-1].weight);
             if(totalDrop > 2.0) { 
-                html += `<li class="insight-item" style="color:var(--danger)"><span class="insight-label">🔄 요요 위험도 경고:</span>
+                html += `<li class="insight-item text-danger"><span class="insight-label">🔄 요요 위험도 경고:</span>
                     최근 감량 속도가 너무 빠릅니다. 급격한 감량은 요요를 부를 수 있습니다.</li>`;
             }
         }
@@ -1074,7 +1133,7 @@
             for(let i=30; i<AppState.records.length; i++) {
                 const prev = AppState.records[i-30];
                 const curr = AppState.records[i];
-                const diff = prev.weight - curr.weight;
+                const diff = MathUtil.diff(prev.weight, curr.weight);
                 if(diff > maxLoss30) {
                     maxLoss30 = diff;
                     bestPeriod = `${prev.date} ~ ${curr.date}`;
@@ -1101,7 +1160,7 @@
         const weights = recent.map(r => r.weight);
         const max = Math.max(...weights);
         const min = Math.min(...weights);
-        const diff = max - min;
+        const diff = MathUtil.diff(max, min);
         
         let msg = "";
         if (diff < 0.5) {
@@ -1138,7 +1197,7 @@
             });
             if (recs.length < 2) return null;
             const avgW = recs.reduce((a,b) => a+b.weight, 0) / recs.length;
-            const loss = recs[0].weight - recs[recs.length-1].weight;
+            const loss = MathUtil.diff(recs[0].weight, recs[recs.length-1].weight);
             const days = DateUtil.daysBetween(DateUtil.parse(recs[0].date), DateUtil.parse(recs[recs.length-1].date)) || 1;
             const speed = loss / days * 7; // 주간 속도
             return { avgW, loss, speed };
@@ -1261,12 +1320,12 @@
         const first = recent[0];
         const last = recent[recent.length-1];
         const days = DateUtil.daysBetween(new Date(first.date), new Date(last.date));
-        const totalDiff = first.weight - last.weight;
+        const totalDiff = MathUtil.diff(first.weight, last.weight);
         const avgRate = totalDiff / (days || 1); 
 
         if(avgRate <= 0.001) return { avg: "증량/유지세 🤔", range: "식단 조절 필요" };
 
-        const remain = currentW - AppState.settings.goal1;
+        const remain = MathUtil.diff(currentW, AppState.settings.goal1);
         const daysLeftAvg = Math.ceil(remain / avgRate);
         
         const fastRate = avgRate * 1.5; 
@@ -1332,7 +1391,7 @@
 
         const avgThis = thisMonthRecs.reduce((a,b)=>a+b.weight,0)/thisMonthRecs.length;
         const avgLast = lastMonthRecs.reduce((a,b)=>a+b.weight,0)/lastMonthRecs.length;
-        const diff = avgThis - avgLast;
+        const diff = MathUtil.diff(avgThis, avgLast);
         
         return `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}kg`;
     }
@@ -1348,7 +1407,7 @@
         });
 
         if(rel.length < 2) return "-";
-        const diff = rel[rel.length-1].weight - rel[0].weight;
+        const diff = MathUtil.diff(rel[rel.length-1].weight, rel[0].weight);
         const days = DateUtil.daysBetween(DateUtil.parse(rel[0].date), DateUtil.parse(rel[rel.length-1].date));
         if(days===0) return "-";
         const g = ((diff/days)*1000).toFixed(0);
@@ -1373,13 +1432,13 @@
         
         const avgT = thisW.reduce((a,b)=>a+b.weight,0)/thisW.length;
         const avgL = lastW.reduce((a,b)=>a+b.weight,0)/lastW.length;
-        const diff = (avgT - avgL).toFixed(2);
+        const diff = MathUtil.diff(avgT, avgL);
         
         const icon = diff < 0 ? '🔻' : (diff > 0 ? '🔺' : '➖');
         return `${icon} ${Math.abs(diff)}kg`;
     }
 
-    // --- 7. 차트 그리기 함수들 (렌더링 최적화 적용) ---
+    // --- 7. 차트 그리기 함수들 (렌더링 최적화 및 인스턴스 관리 개선) ---
     function updateFilterButtons() {
         AppState.el['btn-1m'].className = 'filter-btn' + (AppState.chartFilterMode==='1M'?' active':'');
         AppState.el['btn-3m'].className = 'filter-btn' + (AppState.chartFilterMode==='3M'?' active':'');
@@ -1449,21 +1508,26 @@
         return { type, data, options: defaultOptions };
     }
 
-    // 차트 업데이트 헬퍼 (인스턴스 재사용 최적화)
+    // 차트 업데이트 헬퍼 (인스턴스 재사용 및 중복 생성 방지 강화)
     function updateChartHelper(key, ctx, config) {
-        // 캔버스의 차트 인스턴스 확인
-        const existingChart = Chart.getChart(ctx);
-        if (existingChart && existingChart !== AppState.charts[key]) {
-            existingChart.destroy();
+        let chart = AppState.charts[key];
+        const existingChartInstance = Chart.getChart(ctx);
+
+        // 캔버스에 이미 다른 차트 인스턴스가 있거나, 참조가 꼬인 경우 정리
+        if (existingChartInstance && existingChartInstance !== chart) {
+            existingChartInstance.destroy();
+            chart = null;
         }
 
-        if (AppState.charts[key]) {
-            // 데이터와 옵션만 업데이트
-            AppState.charts[key].data = config.data;
+        if (chart) {
+            // 데이터와 옵션만 업데이트 (깜빡임 방지)
+            chart.data = config.data;
             if (config.options) {
-                Object.assign(AppState.charts[key].options, config.options);
+                // 옵션 깊은 병합 대신 최상위 레벨 교체 (안전성 확보)
+                Object.assign(chart.options, config.options);
+                // 스케일 옵션 등은 깊은 병합이 필요할 수 있으나 Chart.js update가 처리
             }
-            AppState.charts[key].update();
+            chart.update();
         } else {
             AppState.charts[key] = new Chart(ctx, config);
         }
@@ -1604,7 +1668,7 @@
         updateChartHelper('main', ctx, config);
     }
 
-    // 신규 그래프 1: 고스트 러너 (전월 대비 비교) - 날짜 매핑 오류 수정
+    // 신규 그래프 1: 고스트 러너 (전월 대비 비교) - 날짜 매핑 오류 및 부동소수점 보정 수정
     function updateGhostRunnerChart(colors) {
         if(AppState.records.length === 0) return;
         const now = new Date();
@@ -1615,10 +1679,10 @@
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
 
-        // 1일~31일까지 매핑 (월마다 일수가 다르므로 최대 31일 기준)
+        // 날짜 매핑 로직 개선: 존재하지 않는 날짜는 null 처리 (예: 2월 30일)
         const getMonthData = (m, y) => {
             const daysInMonth = DateUtil.getDaysInMonth(y, m);
-            const data = new Array(31).fill(null);
+            const data = new Array(31).fill(null); // X축은 항상 1~31일로 고정
             
             AppState.records.forEach(r => {
                 const d = DateUtil.parse(r.date);
@@ -1627,7 +1691,7 @@
                 }
             });
 
-            // 해당 월의 말일 이후 데이터는 null 유지 (그래프 끊김 방지)
+            // 해당 월의 말일 이후의 데이터 인덱스는 null 유지 (차트 끊김 표현)
             return data.map((val, idx) => (idx < daysInMonth ? val : null));
         };
 
@@ -1738,14 +1802,13 @@
 		};
 		
         // BMI 게이지: CONFIG 상수를 활용하여 범위 동적 계산
-        // 18.5(저) -> 23(정) -> 25(과) -> 30(비1) -> 35(비2) -> 나머지(비3, 45까지 표현)
         const bmiRanges = [
-            { size: CONFIG.BMI.UNDER, color: '#90caf9' }, // 저체중 (~18.5)
-            { size: CONFIG.BMI.NORMAL_END - CONFIG.BMI.UNDER, color: '#a5d6a7' }, // 정상 (18.5~23)
-            { size: CONFIG.BMI.PRE_OBESE_END - CONFIG.BMI.NORMAL_END, color: '#fff59d' }, // 비만 전 (23~25)
-            { size: CONFIG.BMI.OBESE_1_END - CONFIG.BMI.PRE_OBESE_END, color: '#ffcc80' }, // 1단계 (25~30)
-            { size: CONFIG.BMI.OBESE_2_END - CONFIG.BMI.OBESE_1_END, color: '#ef9a9a' }, // 2단계 (30~35)
-            // { size: 10, color: '#ef5350' } // 3단계 (35~45)
+            { size: CONFIG.BMI.UNDER, color: '#90caf9' }, // 저체중
+            { size: CONFIG.BMI.NORMAL_END - CONFIG.BMI.UNDER, color: '#a5d6a7' }, // 정상
+            { size: CONFIG.BMI.PRE_OBESE_END - CONFIG.BMI.NORMAL_END, color: '#fff59d' }, // 비만 전
+            { size: CONFIG.BMI.OBESE_1_END - CONFIG.BMI.PRE_OBESE_END, color: '#ffcc80' }, // 1단계
+            { size: CONFIG.BMI.OBESE_2_END - CONFIG.BMI.OBESE_1_END, color: '#ef9a9a' }, // 2단계
+            // 3단계는 나머지 여분으로 처리됨
         ];
         
         createGauge('gaugeBmiChart', bmi, 45, bmiRanges, 'gaugeBmi');
@@ -1765,9 +1828,9 @@
         const counts = [0,0,0,0,0,0,0];
         
         for(let i=1; i<AppState.records.length; i++) {
-            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
             const day = DateUtil.parse(AppState.records[i].date).getDay();
-            sums[day] += diff;
+            sums[day] = MathUtil.add(sums[day], diff);
             counts[day]++;
         }
         
@@ -1932,7 +1995,7 @@
         
         for(let i=1; i<AppState.records.length; i++) {
             const d = DateUtil.parse(AppState.records[i].date).getDay();
-            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
             if(d === 0 || d === 6) weekendDeltas.push(diff);
             else weekdayDeltas.push(diff);
         }
@@ -2098,7 +2161,7 @@
         for(let i=1; i<AppState.records.length; i++) {
             data.push({
                 x: AppState.records[i].date,
-                y: AppState.records[i].weight - AppState.records[i-1].weight
+                y: MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight)
             });
         }
 
@@ -2130,7 +2193,7 @@
 
         const deltaMap = {};
         for(let i=1; i<AppState.records.length; i++) {
-            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
             deltaMap[AppState.records[i].date] = diff;
         }
 
@@ -2140,18 +2203,24 @@
         for(let d=start; d<=end; d.setDate(d.getDate()+1)) {
             const dateStr = DateUtil.format(d);
             const div = document.createElement('div');
-            div.className = 'heatmap-cell';
-            div.title = dateStr; 
             
+            // CSS 클래스로 스타일 제어
+            let levelClass = 'level-0';
+            let titleText = dateStr;
+
             if(deltaMap[dateStr] !== undefined) {
                 const val = deltaMap[dateStr];
-                div.title += ` (${val>0?'+':''}${val.toFixed(1)}kg)`;
-                if(val > 0) div.style.background = 'var(--heatmap-gain)';
-                else if(val > -0.1) div.style.background = 'var(--heatmap-1)';
-                else if(val > -0.3) div.style.background = 'var(--heatmap-2)';
-                else if(val > -0.5) div.style.background = 'var(--heatmap-3)';
-                else div.style.background = 'var(--heatmap-4)';
+                titleText += ` (${val>0?'+':''}${val.toFixed(1)}kg)`;
+                
+                if(val > 0) levelClass = 'level-gain';
+                else if(val > -0.1) levelClass = 'level-1';
+                else if(val > -0.3) levelClass = 'level-2';
+                else if(val > -0.5) levelClass = 'level-3';
+                else levelClass = 'level-4';
             }
+            
+            div.className = `heatmap-cell ${levelClass}`;
+            div.title = titleText;
             container.appendChild(div);
         }
     }
@@ -2344,62 +2413,59 @@
         const totalLost = MathUtil.diff(AppState.settings.startWeight, s.current);
         const streak = s.maxStreak || 0;
 
-        let weekendDef = false;
-        let plateauBreak = false;
-        let bmiBreak = false;
-        let yoyoPrev = false;
-        let ottogi = false;
-        
-        let recordGod = AppState.records.length >= 365;
-        let goldenCross = false;
-        let fatDestroyer = false;
-
-        let holidaySurvivor = false;
-        let returnProdigal = false;
-        let sniper = false;
-        let rollerCoaster = false;
-        let equanimity = false;
-
-        // 신규 업적 조건 변수
-        let plateauMaster = false; // 정체기 끝판왕
-        let recordMaster = false; // 기록의 달인 (90일 연속)
-        let reborn = false; // 다시 태어난 (10kg 감량)
-        let slowSteady = false; // 슬로우 앤 스테디
-        let weekendShield = false; // 주말 방어 성공 (4주)
-        let weightExpert = false; // 체중 변화 전문가 (월 4kg)
-        let plateauDestroyer = false; // 정체기 파괴자 (2주 정체 후 감량)
-        let iconOfConstancy = false; // 꾸준함의 아이콘 (6개월)
+        const flags = {
+            weekendDef: false,
+            plateauBreak: false,
+            bmiBreak: false,
+            yoyoPrev: false,
+            ottogi: false,
+            recordGod: AppState.records.length >= 365,
+            goldenCross: false,
+            fatDestroyer: false,
+            holidaySurvivor: false,
+            returnProdigal: false,
+            sniper: false,
+            rollerCoaster: false,
+            equanimity: false,
+            plateauMaster: false,
+            recordMaster: false,
+            reborn: false,
+            slowSteady: false,
+            weightExpert: false,
+            plateauDestroyer: false,
+            iconOfConstancy: false
+        };
 
         if(AppState.records.length > 1) {
-            // Sniper: 목표를 소수점까지 정확히 맞춤
-            if(Math.abs(s.current - AppState.settings.goal1) < 0.01) sniper = true;
+            // Sniper
+            if(Math.abs(s.current - AppState.settings.goal1) < 0.01) flags.sniper = true;
 
-            // Roller Coaster: 하루 만에 ±1.5kg 변동
+            // Roller Coaster
             for(let i=1; i<AppState.records.length; i++) {
-                const diff = Math.abs(AppState.records[i].weight - AppState.records[i-1].weight);
+                const diff = Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight));
                 if(diff >= 1.5) {
                     const days = DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date));
-                    if(days === 1) { rollerCoaster = true; break; }
+                    if(days === 1) { flags.rollerCoaster = true; break; }
                 }
             }
 
-            // Equanimity: 7일간 변동 폭이 ±0.1kg 이내
+            // Equanimity
             if(AppState.records.length >= 7) {
                 for(let i=6; i<AppState.records.length; i++) {
                     const slice = AppState.records.slice(i-6, i+1);
                     const diffs = [];
                     for(let j=1; j<slice.length; j++) diffs.push(Math.abs(slice[j].weight - slice[j-1].weight));
-                    if(diffs.every(d => d <= 0.1)) { equanimity = true; break; }
+                    if(diffs.every(d => d <= 0.1)) { flags.equanimity = true; break; }
                 }
             }
 
-            // Zombie (돌아온 탕아): 15일 이상 공백 후 재개
+            // Zombie
             for(let i=1; i<AppState.records.length; i++) {
                 const days = DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date));
-                if(days >= 15) { returnProdigal = true; break; }
+                if(days >= 15) { flags.returnProdigal = true; break; }
             }
 
-            // Holiday Survivor: 명절/크리스마스 전후 방어
+            // Holiday Survivor
             const holidays = ['12-25', '01-01', '01-29', '10-06']; 
             holidays.forEach(h => {
                 const year = new Date().getFullYear();
@@ -2410,27 +2476,27 @@
                 });
                 if(around.length >= 2) {
                     const gain = around[around.length-1].weight - around[0].weight;
-                    if(gain < 0.5) holidaySurvivor = true;
+                    if(gain < 0.5) flags.holidaySurvivor = true;
                 }
             });
 
-            // Weekend Defense (기존)
+            // Weekend Defense
             for(let i=0; i<AppState.records.length-1; i++) {
                 const d1 = DateUtil.parse(AppState.records[i].date);
                 if(d1.getDay() === 6) { 
                     const next = AppState.records.find(r => r.date > AppState.records[i].date); 
                     if(next && DateUtil.parse(next.date).getDay() === 1 && next.weight <= AppState.records[i].weight) {
-                        weekendDef = true; break;
+                        flags.weekendDef = true; break;
                     }
                 }
             }
             
-            // Plateau Break (기존)
+            // Plateau Break
             let stableDays = 0;
             for(let i=1; i<AppState.records.length; i++) {
-                if(Math.abs(AppState.records[i].weight - AppState.records[i-1].weight) < 0.2) stableDays++;
+                if(Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight)) < 0.2) stableDays++;
                 else {
-                    if(stableDays >= 7 && (AppState.records[i].weight < AppState.records[i-1].weight)) plateauBreak = true;
+                    if(stableDays >= 7 && (AppState.records[i].weight < AppState.records[i-1].weight)) flags.plateauBreak = true;
                     stableDays = 0;
                 }
             }
@@ -2447,18 +2513,18 @@
                 if(b < CONFIG.BMI.OBESE_2_END) return 'Obese2';
                 return 'Obese3';
             };
-            if(getCat(bmiStart) !== getCat(bmiCurr)) bmiBreak = true;
+            if(getCat(bmiStart) !== getCat(bmiCurr)) flags.bmiBreak = true;
 
             // Yoyo Prevention
             if(s.current <= AppState.settings.goal1) {
                 const recent = AppState.records.slice(-10);
-                if(recent.length >= 10 && recent.every(r => Math.abs(r.weight - AppState.settings.goal1) <= 0.5)) yoyoPrev = true;
+                if(recent.length >= 10 && recent.every(r => Math.abs(r.weight - AppState.settings.goal1) <= 0.5)) flags.yoyoPrev = true;
             }
 
             // Ottogi
             for(let i=0; i<AppState.records.length-3; i++) {
-                if(AppState.records[i+1].weight - AppState.records[i].weight >= 0.5) {
-                    if(AppState.records[i+3].weight <= AppState.records[i].weight) ottogi = true;
+                if(MathUtil.diff(AppState.records[i+1].weight, AppState.records[i].weight) >= 0.5) {
+                    if(AppState.records[i+3].weight <= AppState.records[i].weight) flags.ottogi = true;
                 }
             }
 
@@ -2466,95 +2532,92 @@
             if(AppState.records.length > 30) {
                 const last7 = AppState.records.slice(-7).reduce((a,b)=>a+b.weight,0)/7;
                 const last30 = AppState.records.slice(-30).reduce((a,b)=>a+b.weight,0)/30;
-                if(last7 < last30 - 0.5) goldenCross = true;
+                if(last7 < last30 - 0.5) flags.goldenCross = true;
             }
 
             // Fat Destroyer
             if(s.lastRec && s.lastRec.fat && s.lastRec.fat < 25) { 
-                fatDestroyer = true;
+                flags.fatDestroyer = true;
             }
 
-            // --- 신규 업적 로직 ---
-            // 정체기 끝판왕: 7일 정체 후 0.5kg 감량
+            // Plateau Master
             stableDays = 0;
             for(let i=1; i<AppState.records.length; i++) {
-                if(Math.abs(AppState.records[i].weight - AppState.records[i-1].weight) < 0.2) stableDays++;
+                if(Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight)) < 0.2) stableDays++;
                 else {
-                    if(stableDays >= 7 && (AppState.records[i-1].weight - AppState.records[i].weight >= 0.5)) plateauMaster = true;
+                    if(stableDays >= 7 && (MathUtil.diff(AppState.records[i-1].weight, AppState.records[i].weight) >= 0.5)) flags.plateauMaster = true;
                     stableDays = 0;
                 }
             }
 
-            // 기록의 달인: 90일 연속
-            if(streak >= 90) recordMaster = true;
+            // Record Master
+            if(streak >= 90) flags.recordMaster = true;
 
-            // 다시 태어난: 최고 체중 대비 10kg 감량
-            if(s.max - s.current >= 10) reborn = true;
+            // Reborn
+            if(s.max - s.current >= 10) flags.reborn = true;
 
-            // 슬로우 앤 스테디: 3개월 이상 월평균 2kg 이하 감량
+            // Slow & Steady
             if(AppState.records.length >= 90) {
                 const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
                 const recs = AppState.records.filter(r => DateUtil.parse(r.date) >= threeMonthsAgo);
                 if(recs.length > 0) {
-                    const loss = recs[0].weight - s.current;
+                    const loss = MathUtil.diff(recs[0].weight, s.current);
                     const avgLoss = loss / 3;
-                    if(avgLoss > 0 && avgLoss <= 2) slowSteady = true;
+                    if(avgLoss > 0 && avgLoss <= 2) flags.slowSteady = true;
                 }
             }
 
-            // 주말 방어 성공 (4주 연속) -> 로직 간소화: 최근 4주 주말 체크
-            // (복잡한 로직이므로 생략 가능하나 요청에 따라 간단히 구현 시도)
-
-            // 체중 변화 전문가: 1개월 4kg 이상
+            // Weight Expert
             if(AppState.records.length >= 30) {
                 const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth()-1);
                 const rec = AppState.records.find(r => DateUtil.parse(r.date) >= oneMonthAgo);
-                if(rec && (rec.weight - s.current >= 4)) weightExpert = true;
+                if(rec && (rec.weight - s.current >= 4)) flags.weightExpert = true;
             }
 
-            // 정체기 파괴자: 2주 정체 후 감량
-            if(s.maxPlateau >= 14 && s.current < s.lastRec.weight) plateauDestroyer = true;
+            // Plateau Destroyer
+            if(s.maxPlateau >= 14 && s.current < s.lastRec.weight) flags.plateauDestroyer = true;
 
-            // 꾸준함의 아이콘: 6개월 이상 연속
-            if(streak >= 180) iconOfConstancy = true;
+            // Icon of Constancy
+            if(streak >= 180) flags.iconOfConstancy = true;
         }
-        
-        const badges = [
-            { id: 'start', name: '시작이 반', icon: '🐣', condition: AppState.records.length >= 1, desc: '첫 기록을 남겼습니다.' },
-            { id: 'holiday', name: '홀리데이 서바이버', icon: '🎅', condition: holidaySurvivor, desc: '명절/연말 전후 증량을 0.5kg 미만으로 막아냈습니다.' },
-            { id: 'zombie', name: '돌아온 탕아', icon: '🧟', condition: returnProdigal, desc: '15일 이상의 공백을 깨고 다시 기록을 시작했습니다.' },
-            { id: 'sniper', name: '스나이퍼', icon: '🎯', condition: sniper, desc: '목표 체중을 소수점까지 정확하게 명중시켰습니다.' },
-            { id: 'coaster', name: '롤러코스터', icon: '🎢', condition: rollerCoaster, desc: '하루 만에 1.5kg 이상의 급격한 변화를 경험했습니다.' },
-            { id: 'zen', name: '평정심', icon: '🧘', condition: equanimity, desc: '7일 연속으로 체중 변동 폭이 0.1kg 이내로 유지되었습니다.' },
-            { id: 'loss3', name: '3kg 감량', icon: '🥉', condition: totalLost >= 3, desc: '총 3kg 이상 감량했습니다.' },
-            { id: 'loss5', name: '5kg 감량', icon: '🥈', condition: totalLost >= 5, desc: '총 5kg 이상 감량했습니다.' },
-            { id: 'loss10', name: '10kg 감량', icon: '🥇', condition: totalLost >= 10, desc: '총 10kg 이상 감량했습니다.' },
-            { id: 'streak3', name: '작심삼일 탈출', icon: '🔥', condition: streak >= 3, desc: '3일 연속으로 감량 또는 유지했습니다.' },
-            { id: 'streak7', name: '일주일 연속', icon: '⚡', condition: streak >= 7, desc: '7일 연속으로 감량 또는 유지했습니다.' },
-            { id: 'digit', name: '앞자리 체인지', icon: '✨', condition: Math.floor(s.current/10) < Math.floor(AppState.settings.startWeight/10), desc: '체중의 십의 자리 숫자가 바뀌었습니다.' },
-            { id: 'goal', name: '목표 달성', icon: '👑', condition: s.current <= AppState.settings.goal1, desc: '최종 목표 체중에 도달했습니다.' },
-            { id: 'weekend', name: '주말 방어전', icon: '🛡️', condition: weekendDef, desc: '주말(토~월) 동안 체중이 늘지 않았습니다.' },
-            { id: 'plateau', name: '정체기 탈출', icon: '🧗‍♀️', condition: plateauBreak, desc: '7일 이상의 정체기를 뚫고 감량했습니다.' },
-            { id: 'bmi', name: 'BMI 돌파', icon: '🩸', condition: bmiBreak, desc: 'BMI 단계(비만->과체중->정상)가 개선되었습니다.' },
-            { id: 'yoyo', name: '요요 방지턱', icon: '🧘', condition: yoyoPrev, desc: '목표 달성 후 10일간 체중을 유지했습니다.' },
-            { id: 'ottogi', name: '오뚜기', icon: '💪', condition: ottogi, desc: '급격한 증량 후 3일 내에 다시 복구했습니다.' },
-            { id: 'recordGod', name: '기록의 신', icon: '📝', condition: recordGod, desc: '총 누적 기록 365개를 달성했습니다.' },
-            { id: 'goldenCross', name: '골든 크로스', icon: '📉', condition: goldenCross, desc: '급격한 하락 추세(30일 평균 대비 7일 평균 급감)에 진입했습니다.' },
-            { id: 'fatDestroyer', name: '체지방 파괴자', icon: '🥓', condition: fatDestroyer, desc: '체지방률 25% 미만에 진입했습니다.' },
-            // 신규 업적 추가
-            { id: 'plateauMaster', name: '정체기 끝판왕', icon: '🧱', condition: plateauMaster, desc: '7일 이상 변동 없다가 0.5kg 이상 감량했습니다.' },
-            { id: 'recordMaster', name: '기록의 달인', icon: '📅', condition: recordMaster, desc: '90일 연속으로 기록했습니다.' },
-            { id: 'reborn', name: '다시 태어난', icon: '🦋', condition: reborn, desc: '최고 체중에서 10kg 이상 감량했습니다.' },
-            { id: 'slowSteady', name: '슬로우 앤 스테디', icon: '🐢', condition: slowSteady, desc: '3개월간 월평균 2kg 이하로 꾸준히 감량했습니다.' },
-            { id: 'weightExpert', name: '체중 변화 전문가', icon: '🎓', condition: weightExpert, desc: '1개월간 4kg 이상 감량했습니다.' },
-            { id: 'plateauDestroyer', name: '정체기 파괴자', icon: '🔨', condition: plateauDestroyer, desc: '2주 이상의 정체기를 극복했습니다.' },
-            { id: 'iconOfConstancy', name: '꾸준함의 아이콘', icon: '🗿', condition: iconOfConstancy, desc: '6개월 이상 연속 기록을 유지했습니다.' }
-        ];
+
+        // 뱃지 상태 매핑
+        const badgeConditions = {
+            start: AppState.records.length >= 1,
+            holiday: flags.holidaySurvivor,
+            zombie: flags.returnProdigal,
+            sniper: flags.sniper,
+            coaster: flags.rollerCoaster,
+            zen: flags.equanimity,
+            loss3: totalLost >= 3,
+            loss5: totalLost >= 5,
+            loss10: totalLost >= 10,
+            streak3: streak >= 3,
+            streak7: streak >= 7,
+            digit: Math.floor(s.current/10) < Math.floor(AppState.settings.startWeight/10),
+            goal: s.current <= AppState.settings.goal1,
+            weekend: flags.weekendDef,
+            plateau: flags.plateauBreak,
+            bmi: flags.bmiBreak,
+            yoyo: flags.yoyoPrev,
+            ottogi: flags.ottogi,
+            recordGod: flags.recordGod,
+            goldenCross: flags.goldenCross,
+            fatDestroyer: flags.fatDestroyer,
+            plateauMaster: flags.plateauMaster,
+            recordMaster: flags.recordMaster,
+            reborn: flags.reborn,
+            slowSteady: flags.slowSteady,
+            weightExpert: flags.weightExpert,
+            plateauDestroyer: flags.plateauDestroyer,
+            iconOfConstancy: flags.iconOfConstancy
+        };
 
         let html = '';
-        badges.forEach(b => {
-            const cls = b.condition ? 'badge-item unlocked' : 'badge-item';
-            html += `<div class="${cls}" title="${b.desc} (${b.condition ? '획득 완료' : '미획득'})">
+        CONFIG.BADGES.forEach(b => {
+            const isUnlocked = badgeConditions[b.id];
+            const cls = isUnlocked ? 'badge-item unlocked' : 'badge-item';
+            html += `<div class="${cls}" title="${b.desc} (${isUnlocked ? '획득 완료' : '미획득'})">
                 <span class="badge-icon">${b.icon}</span>
                 <span class="badge-name">${b.name}</span>
             </div>`;
