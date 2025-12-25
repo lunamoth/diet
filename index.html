@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 2026 (Ver 3.0.49)</title>
+    <title>💪 다이어트 챌린지 2026 (Ver 3.0.50)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -664,6 +664,25 @@
             <div class="stat-label">체성분 변화 추이</div>
             <div class="stat-sub">월별/분기별</div>
         </div>
+        
+        <!-- === [NEW] 새로운 지표 추가 === -->
+        <div class="stat-card">
+            <span class="stat-icon">🧬</span>
+            <div class="stat-value" id="metabolicAgeDisplay">-</div>
+            <div class="stat-label">신체 나이 (추정)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">💰</span>
+            <div class="stat-value" id="dietCostDisplay">-</div>
+            <div class="stat-label">다이어트 가성비</div>
+            <div class="stat-sub">(1kg 감량 소요 일수)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🍻</span>
+            <div class="stat-value" id="weekendImpactDisplay">-</div>
+            <div class="stat-label">주말 여파 지수</div>
+            <div class="stat-sub">(월 - 금 차이 평균)</div>
+        </div>
     </div>
     
     <!-- 메인 차트 영역 -->
@@ -776,6 +795,15 @@
                 <canvas id="weeklyBodyCompChart"></canvas>
             </div>
         </div>
+
+        <!-- === [NEW] 새로운 그래프 추가 === -->
+        <div class="card">
+            <h3>📉 체중 vs 감량 속도 (Scatter) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="weightSpeedScatterChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">체중대별 감량 속도 분포 (무거울수록 잘 빠질까요?)</p>
+        </div>
     </div>
 
     <!-- 상세 분석 영역 -->
@@ -857,6 +885,40 @@
                 <tr><td colspan="2">데이터 분석 중...</td></tr>
             </tbody>
         </table>
+    </div>
+    
+    <!-- === [NEW] 확장 통계 테이블 추가 === -->
+    <div class="card">
+        <h3>📊 확장 통계 (Extended Statistics)</h3>
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">🗓️ 요일별 승률 (Daily Win Rate)</h4>
+                <table class="data-table">
+                    <thead><tr><th>요일</th><th>승률 (감량 성공)</th></tr></thead>
+                    <tbody id="dailyWinRateTable"><tr><td colspan="2">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">⏳ 구간별 체류 시간 (Zone Duration)</h4>
+                <table class="data-table">
+                    <thead><tr><th>구간</th><th>체류 기간</th></tr></thead>
+                    <tbody id="zoneDurationTable"><tr><td colspan="2">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">🔥 연속 기록 (Streak) 상세</h4>
+                <table class="data-table">
+                    <tbody id="streakDetailTable"><tr><td colspan="2">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">🏆 최고의 달 / 최악의 달 (Top 3)</h4>
+                <table class="data-table">
+                    <thead><tr><th>순위</th><th>최고의 달 (감량)</th><th>최악의 달 (증량)</th></tr></thead>
+                    <tbody id="bestWorstMonthTable"><tr><td colspan="3">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- 🏆 업적 및 뱃지 -->
