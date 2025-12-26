@@ -186,7 +186,7 @@
         SETTINGS_KEY: 'diet_pro_settings',
         FILTER_KEY: 'diet_pro_filter_mode',
         records: [],
-		settings: { height: 179, startWeight: 78.5, goal1: 70, intake: 1459 }, 
+		settings: { height: 179, startWeight: 78.5, goal1: 70, intake: 1862 }, 
         chartFilterMode: 'ALL',
         customStart: null,
         customEnd: null,
