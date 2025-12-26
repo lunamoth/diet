@@ -1,4 +1,6 @@
 (function() {
+    'use strict';
+
     // --- 0. 설정 및 상수 (CONFIG) ---
     const CONFIG = {
         // 한국인 기준 (대한비만학회 2020)
@@ -107,14 +109,21 @@
     };
 
     const MathUtil = {
-        // 부동소수점 오차 보정을 위한 연산 메서드
+        // 부동소수점 오차 보정을 위한 연산 메서드 (IEEE 754 문제 해결)
+        // 100을 곱해 정수로 만든 뒤 연산하고 다시 나누는 방식 사용
         round: (num, decimals = 1) => {
             if (num === null || num === undefined) return 0;
             const factor = Math.pow(10, decimals);
             return Math.round((num + Number.EPSILON) * factor) / factor;
         },
-        diff: (a, b) => MathUtil.round(a - b),
-        add: (a, b) => MathUtil.round(a + b),
+        diff: (a, b) => {
+             // (a - b)를 정밀하게 수행
+             return MathUtil.round(((a * 100) - (b * 100)) / 100);
+        },
+        add: (a, b) => {
+             // (a + b)를 정밀하게 수행
+             return MathUtil.round(((a * 100) + (b * 100)) / 100);
+        },
         clamp: (num, min, max) => Math.min(Math.max(num, min), max),
         stdDev: (arr) => {
             if (arr.length === 0) return 0;
@@ -147,6 +156,7 @@
         },
         // CSS 클래스 기반 텍스트 색상 변경 헬퍼
         setTextColor: (el, colorType) => {
+            if (!el) return;
             el.className = el.className.replace(/\btext-\S+/g, ''); // 기존 text- 클래스 제거
             if (colorType === 'danger') el.classList.add('text-danger');
             else if (colorType === 'primary') el.classList.add('text-primary');
@@ -178,10 +188,16 @@
             main: null, dow: null, hist: null, cumul: null, monthly: null, fat: null, scatter: null, 
             weekend: null, bodyComp: null, boxPlot: null, roc: null, ghostRunner: null, 
             gaugeBmi: null, gaugeFat: null, weeklyBodyComp: null,
-            // [NEW] (dietStyleRadar 제거됨)
             weightSpeedScatter: null
         },
-        el: {},
+        // [Refactor] DOM Cache (lazy load)
+        _elCache: {},
+        getEl: function(id) {
+            if (!this._elCache[id]) {
+                this._elCache[id] = document.getElementById(id);
+            }
+            return this._elCache[id];
+        },
         state: {
             editingDate: null, 
             statsCache: null, 
@@ -192,6 +208,7 @@
 
     // --- 2. 초기화 ---
     function init() {
+        // DOM 요소 캐싱 리스트 (필요 시 getEl로 접근)
         const ids = [
             'dateInput', 'weightInput', 'fatInput', 'userHeight', 'startWeight', 'goal1Weight', 'dailyIntake',
             'settingsPanel', 'badgeGrid', 'csvFileInput', 'resetConfirmInput', 'recordInputGroup',
@@ -205,11 +222,8 @@
             'maDisparityDisplay', 'weightClassDisplay', 'recoveryScoreDisplay', 
             'plateauHelperText', 'yoyoRiskDisplay', 'recent3DayAvgDisplay', 'weeklySpeedDisplay', 'idealWeeklyRateDisplay',
             'bodyCompBalanceDisplay', 'lossConsistencyDisplay', 'calEfficiencyDisplay', 'volatilityIndexDisplay', 'bodyCompTrendDisplay',
-            // [NEW] 지표 IDs
             'metabolicAgeDisplay', 'dietCostDisplay', 'weekendImpactDisplay', 
-            // [NEW] 테이블 IDs
             'dailyWinRateTable', 'zoneDurationTable', 'streakDetailTable', 'bestWorstMonthTable',
-
             'advancedAnalysisList', 'calendarContainer', 'periodCompareTable', 'detailedStatsTable',
             'progressBarFill', 'progressEmoji', 'progressText', 'labelStart', 'labelGoal',
             'bmiProgressBarFill', 'bmiProgressEmoji', 'bmiProgressText', 'bmiLabelLeft', 'bmiLabelRight',
@@ -218,9 +232,11 @@
             'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 
             'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'recordBtn'
         ];
-        ids.forEach(id => AppState.el[id] = document.getElementById(id));
+        // 캐싱 선작업 (선택적)
+        ids.forEach(id => AppState.getEl(id));
         
-        AppState.el.dateInput.valueAsDate = new Date();
+        const dateInput = AppState.getEl('dateInput');
+        if (dateInput) dateInput.valueAsDate = new Date();
         
         try {
             AppState.records = JSON.parse(localStorage.getItem(AppState.STORAGE_KEY)) || [];
@@ -236,36 +252,49 @@
             document.body.classList.add('dark-mode');
         }
 
-        AppState.el.userHeight.value = AppState.settings.height;
-        AppState.el.startWeight.value = AppState.settings.startWeight;
-        AppState.el.goal1Weight.value = AppState.settings.goal1;
-        AppState.el.dailyIntake.value = AppState.settings.intake || 1862;
+        const hEl = AppState.getEl('userHeight');
+        const sEl = AppState.getEl('startWeight');
+        const gEl = AppState.getEl('goal1Weight');
+        const iEl = AppState.getEl('dailyIntake');
+
+        if(hEl) hEl.value = AppState.settings.height;
+        if(sEl) sEl.value = AppState.settings.startWeight;
+        if(gEl) gEl.value = AppState.settings.goal1;
+        if(iEl) iEl.value = AppState.settings.intake || 1862;
 
         if(AppState.records.length > 0) {
             AppState.state.calendarViewDate = DateUtil.parse(AppState.records[AppState.records.length-1].date);
         }
 
-        // 이벤트 리스너 등록
-        AppState.el.heatmapGrid.addEventListener('click', (e) => {
-             if(e.target.classList.contains('heatmap-cell') && e.target.title) {
-                 showToast(e.target.title);
-             }
-        });
+        // [Optimized] 이벤트 위임 (히트맵) - 이미 존재하지만 명시적으로 확인
+        const hmGrid = AppState.getEl('heatmapGrid');
+        if (hmGrid) {
+            hmGrid.addEventListener('click', (e) => {
+                if(e.target.classList.contains('heatmap-cell') && e.target.title) {
+                    showToast(e.target.title);
+                }
+            });
+        }
         
         // 입력 편의성: Enter 키 처리
         const handleEnter = (e) => { if(e.key === 'Enter') addRecord(); };
-        AppState.el.weightInput.addEventListener('keyup', handleEnter);
-        AppState.el.fatInput.addEventListener('keyup', handleEnter);
+        const wInput = AppState.getEl('weightInput');
+        const fInput = AppState.getEl('fatInput');
+        if (wInput) wInput.addEventListener('keyup', handleEnter);
+        if (fInput) fInput.addEventListener('keyup', handleEnter);
 
         // 이벤트 위임 (히스토리 테이블)
-        AppState.el.historyList.addEventListener('click', (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
-            const action = btn.dataset.action;
-            const date = btn.dataset.date;
-            if (action === 'edit') editRecord(date);
-            else if (action === 'delete') deleteRecord(date);
-        });
+        const histList = AppState.getEl('historyList');
+        if (histList) {
+            histList.addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+                const action = btn.dataset.action;
+                const date = btn.dataset.date;
+                if (action === 'edit') editRecord(date);
+                else if (action === 'delete') deleteRecord(date);
+            });
+        }
 
         updateFilterButtons();
         updateUI();
@@ -294,19 +323,19 @@
     }
 
     function toggleSettings() {
-        const panel = AppState.el.settingsPanel;
+        const panel = AppState.getEl('settingsPanel');
         panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
     }
 
     function toggleBadges() {
-        const grid = AppState.el.badgeGrid;
+        const grid = AppState.getEl('badgeGrid');
         grid.style.display = grid.style.display === 'grid' ? 'none' : 'grid';
     }
 
     function toggleDarkMode() {
         document.body.classList.toggle('dark-mode');
         localStorage.setItem('diet_pro_dark_mode', document.body.classList.contains('dark-mode'));
-        // 차트 색상 완전 갱신을 위해 파괴 후 재생성
+        // 차트 색상 완전 갱신을 위해 파괴 후 재생성 (테마 변경 시에는 필요)
         Object.keys(AppState.charts).forEach(key => { 
             if(AppState.charts[key]) {
                 AppState.charts[key].destroy(); 
@@ -317,12 +346,11 @@
     }
 
     function saveSettings() {
-        const height = parseFloat(AppState.el.userHeight.value);
-        const startWeight = parseFloat(AppState.el.startWeight.value);
-        const goal1 = parseFloat(AppState.el.goal1Weight.value);
-        const intake = parseFloat(AppState.el.dailyIntake.value);
+        const height = parseFloat(AppState.getEl('userHeight').value);
+        const startWeight = parseFloat(AppState.getEl('startWeight').value);
+        const goal1 = parseFloat(AppState.getEl('goal1Weight').value);
+        const intake = parseFloat(AppState.getEl('dailyIntake').value);
 
-        // 설정값 유효성 검사 강화
         if (isNaN(height) || height <= 0 || height > 300) return showToast('유효한 키(cm)를 입력해주세요.');
         if (isNaN(startWeight) || startWeight <= 0 || startWeight > 500) return showToast('유효한 시작 체중을 입력해주세요.');
         if (isNaN(goal1) || goal1 <= 0 || goal1 > 500) return showToast('유효한 목표 체중을 입력해주세요.');
@@ -340,9 +368,9 @@
     }
 
     function addRecord() {
-        const date = AppState.el.dateInput.value;
-        const weight = parseFloat(AppState.el.weightInput.value);
-        const fat = parseFloat(AppState.el.fatInput.value);
+        const date = AppState.getEl('dateInput').value;
+        const weight = parseFloat(AppState.getEl('weightInput').value);
+        const fat = parseFloat(AppState.getEl('fatInput').value);
 
         if (!date) return showToast('날짜를 입력해주세요.');
         if (DateUtil.isFuture(date)) return showToast('미래 날짜는 입력할 수 없습니다.');
@@ -359,10 +387,8 @@
 
         const existingIndex = AppState.records.findIndex(r => r.date === date);
 
-        // 수정 모드 또는 신규 입력 시 중복 처리 로직 강화
         if (AppState.state.editingDate) {
             if (AppState.state.editingDate !== date) {
-                // 날짜 변경 시
                 if (existingIndex >= 0) {
                     if (!confirm(`${date}에 이미 기록이 있습니다. 덮어쓰시겠습니까?`)) return;
                     AppState.records = AppState.records.filter(r => r.date !== AppState.state.editingDate && r.date !== date);
@@ -372,11 +398,9 @@
                     AppState.records.push(record);
                 }
             } else {
-                // 날짜 동일, 데이터 업데이트
                 AppState.records[existingIndex] = record;
             }
         } else {
-            // 신규 입력
             if (existingIndex >= 0) {
                 if(!confirm(`${date}에 이미 기록이 있습니다. 덮어쓰시겠습니까?`)) return;
                 AppState.records[existingIndex] = record;
@@ -389,24 +413,25 @@
         AppState.state.isDirty = true;
         debouncedSaveRecords();
         
-        resetForm(date); // 입력한 날짜를 전달하여 다음 날 자동 설정
+        resetForm(date); 
         updateUI();
         showToast('기록이 저장되었습니다.');
     }
 
     function resetForm(lastDateStr = null) {
         if (lastDateStr) {
-            // 편의성: 입력 후 다음 날짜로 자동 세팅
-            AppState.el.dateInput.value = DateUtil.addDays(lastDateStr, 1);
+            AppState.getEl('dateInput').value = DateUtil.addDays(lastDateStr, 1);
         } else {
-            AppState.el.dateInput.valueAsDate = new Date();
+            AppState.getEl('dateInput').valueAsDate = new Date();
         }
-        AppState.el.weightInput.value = '';
-        AppState.el.fatInput.value = '';
+        AppState.getEl('weightInput').value = '';
+        AppState.getEl('fatInput').value = '';
         AppState.state.editingDate = null;
-        AppState.el.recordBtn.innerText = '기록하기 📝';
-        AppState.el.recordBtn.classList.remove('editing-mode');
-        AppState.el.weightInput.focus();
+        
+        const rBtn = AppState.getEl('recordBtn');
+        rBtn.innerText = '기록하기 📝';
+        rBtn.classList.remove('editing-mode');
+        AppState.getEl('weightInput').focus();
     }
 
     function deleteRecord(date) {
@@ -422,30 +447,32 @@
     function editRecord(date) {
         const record = AppState.records.find(r => r.date === date);
         if (record) {
-            AppState.el.dateInput.value = record.date;
-            AppState.el.weightInput.value = record.weight;
-            if (record.fat) AppState.el.fatInput.value = record.fat;
-            else AppState.el.fatInput.value = '';
+            AppState.getEl('dateInput').value = record.date;
+            AppState.getEl('weightInput').value = record.weight;
+            if (record.fat) AppState.getEl('fatInput').value = record.fat;
+            else AppState.getEl('fatInput').value = '';
             
             AppState.state.editingDate = date; 
-            AppState.el.recordBtn.innerText = '수정 완료 ✔️';
-            AppState.el.recordBtn.classList.add('editing-mode');
+            const rBtn = AppState.getEl('recordBtn');
+            rBtn.innerText = '수정 완료 ✔️';
+            rBtn.classList.add('editing-mode');
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
             showToast(`${date} 기록을 수정합니다.`);
             
-            const inputGroup = AppState.el.recordInputGroup;
+            const inputGroup = AppState.getEl('recordInputGroup');
             inputGroup.classList.add('highlight');
             setTimeout(() => inputGroup.classList.remove('highlight'), 1000);
         }
     }
 
     function safeResetData() {
-        if (AppState.el.resetConfirmInput.value === "초기화") {
+        const input = AppState.getEl('resetConfirmInput');
+        if (input.value === "초기화") {
             localStorage.removeItem(AppState.STORAGE_KEY);
             AppState.records = [];
             AppState.state.isDirty = true;
-            AppState.el.resetConfirmInput.value = '';
+            input.value = '';
             updateUI();
             showToast('초기화되었습니다.');
         } else {
@@ -454,12 +481,11 @@
     }
 
     function importData() {
-        const file = AppState.el.csvFileInput.files[0];
+        const file = AppState.getEl('csvFileInput').files[0];
         if (!file) return showToast('파일을 선택해주세요.');
         
         const reader = new FileReader();
         reader.onload = function(e) {
-            // BOM 제거 및 trim
             const content = e.target.result.trim().replace(/^\uFEFF/, '');
             
             if(file.name.endsWith('.json')) {
@@ -482,7 +508,6 @@
                 return;
             }
 
-            // CSV 파싱 로직 개선 (쉼표 및 따옴표 처리)
             const lines = content.split(/\r?\n/);
             let count = 0;
             const csvRegex = /(?:^|,)(?:"([^"]*)"|([^",]*))/g;
@@ -555,8 +580,6 @@
     function updateUI() {
         if(AppState.state.isDirty) {
             AppState.state.statsCache = analyzeRecords(AppState.records);
-            // 저장 로직은 debouncedSaveRecords에서 처리하므로 여기서는 flag 유지
-            // 단, UI 렌더링을 위해 캐시는 갱신함.
         }
         const s = AppState.state.statsCache;
         
@@ -564,10 +587,10 @@
         renderNewStats(s); 
         renderAnalysisText();
         renderAdvancedText(s); 
-        renderPlateauHelper(s); // 신규 기능
-        renderPeriodComparison(); // 신규 기능
-        renderDetailedStats(s); // 신규 기능
-        renderExtendedStats(); // [NEW] 확장 통계
+        renderPlateauHelper(s); 
+        renderPeriodComparison(); 
+        renderDetailedStats(s); 
+        renderExtendedStats(); 
         
         // 차트 업데이트 (재사용 및 업데이트 방식 개선)
         const colors = DomUtil.getChartColors();
@@ -583,26 +606,18 @@
         updateMonthlyBoxPlotChart(colors); 
         updateRocChart(colors); 
 
-        // 신규 차트 업데이트
         updateGhostRunnerChart(colors);
         updateGaugeCharts(colors);
-        updateWeeklyBodyCompChart(colors); // 신규 차트
-        updateWeightSpeedScatterChart(colors); // [NEW]
-        // updateDietStyleRadarChart(colors); // [REMOVED]
+        updateWeeklyBodyCompChart(colors); 
+        updateWeightSpeedScatterChart(colors); 
 
         renderHeatmap();
         renderCalendarView(); 
         renderAllTables();
         renderBadges(s);
-
-        // UI 갱신 후 dirty 상태 해제는 실제 저장 시점과 별개일 수 있으나
-        // 로직 단순화를 위해 여기서 해제하지 않고 debouncedSaveRecords에 위임하거나
-        // 저장 후 false로 변경해야 하나, 여기서는 저장이 비동기(debounce)이므로
-        // 다음 입력 전까지는 변경사항이 반영된 상태로 유지.
-        // *참고: isDirty 플래그는 저장 트리거용으로 사용됨.
     }
 
-    // --- 5. 분석 계산 로직 (중복 연산 제거를 위한 통합) ---
+    // --- 5. 분석 계산 로직 ---
     function analyzeRecords(records) {
         if (!records || records.length === 0) return {};
         
@@ -636,15 +651,10 @@
             }
         }
 
-        // --- 새로운 통계 계산 (추가된 부분) ---
-        // 1. 최고/최저 체중일
         const maxRec = records.find(r => r.weight === max) || {};
         const minRec = records.find(r => r.weight === min) || {};
-        
-        // 2. 표준편차
         const stdDev = MathUtil.stdDev(weights);
 
-        // 3. 체지방/제지방량 변화
         let fatChange = 0, lbmChange = 0;
         const firstFatRec = records.find(r => r.fat);
         const lastFatRec = [...records].reverse().find(r => r.fat);
@@ -658,7 +668,6 @@
             lbmChange = MathUtil.diff(endLbmKg, startLbmKg);
         }
 
-        // 4. 최장 정체기
         let maxPlateau = 0, curPlateau = 0;
         for(let i=1; i<records.length; i++) {
             if(Math.abs(MathUtil.diff(records[i].weight, records[i-1].weight)) < 0.2) curPlateau++;
@@ -683,9 +692,10 @@
         const currentW = s.current !== undefined ? s.current : AppState.settings.startWeight;
         const totalLost = MathUtil.diff(AppState.settings.startWeight, currentW);
         
-        AppState.el.currentWeightDisplay.innerText = currentW.toFixed(1) + 'kg';
-        AppState.el.totalLostDisplay.innerText = `${totalLost}kg`;
-        DomUtil.setTextColor(AppState.el.totalLostDisplay, totalLost > 0 ? 'primary' : (totalLost < 0 ? 'danger' : 'default'));
+        AppState.getEl('currentWeightDisplay').innerText = currentW.toFixed(1) + 'kg';
+        const totalLostEl = AppState.getEl('totalLostDisplay');
+        totalLostEl.innerText = `${totalLost}kg`;
+        DomUtil.setTextColor(totalLostEl, totalLost > 0 ? 'primary' : (totalLost < 0 ? 'danger' : 'default'));
 
         let pct = 0;
         const totalGap = MathUtil.diff(AppState.settings.startWeight, AppState.settings.goal1);
@@ -694,12 +704,11 @@
              pct = (currentGap / totalGap) * 100;
         }
         
-        // 달성률 클램핑 (0~100)
         const displayPct = MathUtil.clamp(pct, 0, 100);
-        AppState.el.progressPercent.innerText = displayPct.toFixed(1) + '%';
+        AppState.getEl('progressPercent').innerText = displayPct.toFixed(1) + '%';
         
         const remaining = MathUtil.diff(currentW, AppState.settings.goal1);
-        const remainingDisplay = AppState.el.remainingWeightDisplay;
+        const remainingDisplay = AppState.getEl('remainingWeightDisplay');
         remainingDisplay.innerText = `${remaining > 0 ? remaining : 0}kg`;
         DomUtil.setTextColor(remainingDisplay, remaining <= 0 ? 'secondary' : 'default');
 
@@ -708,12 +717,11 @@
             remainingPct = (remaining / totalGap * 100);
             if(remainingPct < 0) remainingPct = 0;
         }
-        AppState.el.remainingPercentDisplay.innerText = `${remainingPct.toFixed(1)}%`;
+        AppState.getEl('remainingPercentDisplay').innerText = `${remainingPct.toFixed(1)}%`;
 
         const hMeter = AppState.settings.height / 100;
         const bmi = (currentW / (hMeter * hMeter)).toFixed(1);
         
-        // BMI 기준 적용 (CONFIG.BMI 활용)
         let bmiLabel = '정상';
         if(bmi < CONFIG.BMI.UNDER) bmiLabel = '저체중';
         else if(bmi < CONFIG.BMI.NORMAL_END) bmiLabel = '정상';
@@ -722,42 +730,45 @@
         else if(bmi < CONFIG.BMI.OBESE_2_END) bmiLabel = '2단계 비만';
         else bmiLabel = '3단계 비만 (고도 비만)';
         
-        AppState.el.bmiDisplay.innerText = `BMI: ${bmi} (${bmiLabel})`;
-        updateBmiProgressBar(parseFloat(bmi), bmiLabel); // BMI 프로그레스바 업데이트
+        AppState.getEl('bmiDisplay').innerText = `BMI: ${bmi} (${bmiLabel})`;
+        updateBmiProgressBar(parseFloat(bmi), bmiLabel);
 
         const percentLost = ((AppState.settings.startWeight - currentW) / AppState.settings.startWeight * 100).toFixed(1);
-        AppState.el.percentLostDisplay.innerText = `(시작 체중 대비 ${percentLost > 0 ? '-' : '+'}${Math.abs(percentLost)}%)`;
+        AppState.getEl('percentLostDisplay').innerText = `(시작 체중 대비 ${percentLost > 0 ? '-' : '+'}${Math.abs(percentLost)}%)`;
 
         updateProgressBar(currentW, totalLost, pct, remaining);
 
-        AppState.el.streakDisplay.innerText = (s.maxStreak || 0) + '일';
-        AppState.el.successRateDisplay.innerText = (s.successRate || 0) + '%';
+        AppState.getEl('streakDisplay').innerText = (s.maxStreak || 0) + '일';
+        AppState.getEl('successRateDisplay').innerText = (s.successRate || 0) + '%';
         
         const pred = calculateScenarios(currentW);
-        AppState.el.predictedDate.innerText = pred.avg;
-        AppState.el.predictionRange.innerText = pred.range;
+        AppState.getEl('predictedDate').innerText = pred.avg;
+        AppState.getEl('predictionRange').innerText = pred.range;
         
-        AppState.el.rate7Days.innerText = getRate(7);
-        AppState.el.rate30Days.innerText = getRate(30);
-        AppState.el.dashboardRate7Days.innerText = getRate(7);
-        AppState.el.dashboardRate30Days.innerText = getRate(30);
-        AppState.el.weeklyCompareDisplay.innerText = getWeeklyComparison();
+        const r7 = getRate(7);
+        const r30 = getRate(30);
+        AppState.getEl('rate7Days').innerText = r7;
+        AppState.getEl('rate30Days').innerText = r30;
+        AppState.getEl('dashboardRate7Days').innerText = r7;
+        AppState.getEl('dashboardRate30Days').innerText = r30;
+        AppState.getEl('weeklyCompareDisplay').innerText = getWeeklyComparison();
 
-        AppState.el.minMaxWeightDisplay.innerHTML = `
+        AppState.getEl('minMaxWeightDisplay').innerHTML = `
             <span class="text-danger">${(s.max||0).toFixed(1)}kg</span> / 
             <span class="text-primary">${(s.min||0).toFixed(1)}kg</span>
         `;
         
-        AppState.el.dailyVolatilityDisplay.innerHTML = `
+        AppState.getEl('dailyVolatilityDisplay').innerHTML = `
             <span class="text-primary">▼${(s.maxDrop||0).toFixed(1)}</span> / 
             <span class="text-danger">▲${(s.maxGain||0).toFixed(1)}</span>
         `;
 
-        AppState.el.weeklyAvgDisplay.innerText = calculateWeeklyAvg() + 'kg';
+        AppState.getEl('weeklyAvgDisplay').innerText = calculateWeeklyAvg() + 'kg';
         
         const monComp = calculateMonthlyComparison();
-        AppState.el.monthCompareDisplay.innerText = monComp;
-        DomUtil.setTextColor(AppState.el.monthCompareDisplay, monComp.includes('▼') ? 'primary' : (monComp.includes('▲') ? 'danger' : 'default'));
+        const mCompEl = AppState.getEl('monthCompareDisplay');
+        mCompEl.innerText = monComp;
+        DomUtil.setTextColor(mCompEl, monComp.includes('▼') ? 'primary' : (monComp.includes('▲') ? 'danger' : 'default'));
     }
 
     function renderNewStats(s) {
@@ -766,26 +777,24 @@
         const lastRec = s.lastRec;
         const currentW = lastRec.weight;
 
-        // 신규 지표 1: 이동평균 괴리율
+        const maEl = AppState.getEl('maDisparityDisplay');
         if(AppState.records.length >= 7) {
             const last7 = AppState.records.slice(-7);
             const avg7 = last7.reduce((a,b)=>a+b.weight, 0) / 7;
             const disparity = MathUtil.diff(currentW, avg7);
-            AppState.el.maDisparityDisplay.innerText = (disparity > 0 ? '+' : '') + disparity.toFixed(2) + 'kg';
-            DomUtil.setTextColor(AppState.el.maDisparityDisplay, disparity > 0 ? 'danger' : 'primary');
+            maEl.innerText = (disparity > 0 ? '+' : '') + disparity.toFixed(2) + 'kg';
+            DomUtil.setTextColor(maEl, disparity > 0 ? 'danger' : 'primary');
         } else {
-            AppState.el.maDisparityDisplay.innerText = '수집중';
+            maEl.innerText = '수집중';
         }
 
-        // 신규 지표 2: 체급 표시
         const wClass = CONFIG.WEIGHT_CLASSES.find(c => currentW >= c.min);
-        AppState.el.weightClassDisplay.innerText = wClass ? wClass.name : '미분류';
+        AppState.getEl('weightClassDisplay').innerText = wClass ? wClass.name : '미분류';
 
-        // 신규 지표 3: 회복 탄력성 (Recovery Score)
         let recoveries = [];
         for(let i=1; i<AppState.records.length-1; i++) {
             const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
-            if(diff >= 0.5) { // 0.5kg 이상 증량을 '치팅/스파이크'로 간주
+            if(diff >= 0.5) { 
                 const baseWeight = AppState.records[i-1].weight;
                 let daysToRecover = 0;
                 for(let j=i+1; j<AppState.records.length; j++) {
@@ -797,36 +806,29 @@
                 }
             }
         }
-        if(recoveries.length > 0) {
-            const avgRec = recoveries.reduce((a,b)=>a+b, 0) / recoveries.length;
-            AppState.el.recoveryScoreDisplay.innerText = avgRec.toFixed(1) + '일';
-        } else {
-            AppState.el.recoveryScoreDisplay.innerText = '-';
-        }
+        AppState.getEl('recoveryScoreDisplay').innerText = recoveries.length > 0 ? (recoveries.reduce((a,b)=>a+b, 0) / recoveries.length).toFixed(1) + '일' : '-';
 
         if(lastRec && lastRec.fat) {
             const lbm = lastRec.weight * (1 - lastRec.fat/100);
             const hMeter = AppState.settings.height / 100;
             const lbmi = lbm / (hMeter * hMeter);
-            AppState.el.lbmDisplay.innerText = lbm.toFixed(1) + 'kg';
-            AppState.el.lbmiDisplay.innerText = `LBMI: ${lbmi.toFixed(1)}`;
+            AppState.getEl('lbmDisplay').innerText = lbm.toFixed(1) + 'kg';
+            AppState.getEl('lbmiDisplay').innerText = `LBMI: ${lbmi.toFixed(1)}`;
             
-            // [NEW] 신체 나이 (Metabolic Age)
-            // 가상 공식: 25 + (BMI-22)*2 + (체지방-20)*0.5 (매우 단순화된 예시)
             const bmiVal = currentW / (hMeter * hMeter);
             let metaAge = 25 + (bmiVal - 22) * 2 + (lastRec.fat - 20) * 0.5;
             if(metaAge < 18) metaAge = 18; 
-            AppState.el.metabolicAgeDisplay.innerText = `약 ${Math.round(metaAge)}세`;
+            AppState.getEl('metabolicAgeDisplay').innerText = `약 ${Math.round(metaAge)}세`;
         } else {
-            AppState.el.lbmDisplay.innerText = '-';
-            AppState.el.lbmiDisplay.innerText = '체지방 입력 필요';
-            AppState.el.metabolicAgeDisplay.innerText = '체지방 필요';
+            AppState.getEl('lbmDisplay').innerText = '-';
+            AppState.getEl('lbmiDisplay').innerText = '체지방 입력 필요';
+            AppState.getEl('metabolicAgeDisplay').innerText = '체지방 필요';
         }
 
         const startD = DateUtil.parse(AppState.records[0].date);
         const lastD = DateUtil.parse(lastRec.date);
         const dayDiff = Math.floor(DateUtil.daysBetween(startD, lastD));
-        AppState.el.dDayDisplay.innerText = `Day ${dayDiff + 1}`;
+        AppState.getEl('dDayDisplay').innerText = `Day ${dayDiff + 1}`;
 
         const recentRecs = AppState.records.slice(-14); 
         if(recentRecs.length > 2) {
@@ -838,43 +840,42 @@
                 const dailyLoss = lossKg / days;
                 const userIntake = AppState.settings.intake || 2000;
                 const estimatedTdee = userIntake + (dailyLoss * 7700);
-                AppState.el.estTdeeDisplay.innerText = `${Math.round(estimatedTdee)} kcal`;
-                AppState.el.estTdeeSubDisplay.innerText = `(섭취 ${userIntake}kcal 가정)`;
+                AppState.getEl('estTdeeDisplay').innerText = `${Math.round(estimatedTdee)} kcal`;
+                AppState.getEl('estTdeeSubDisplay').innerText = `(섭취 ${userIntake}kcal 가정)`;
                 
-                // 신규 지표: 칼로리 컷 효율
-                if(AppState.el.calEfficiencyDisplay) {
+                const calEffEl = AppState.getEl('calEfficiencyDisplay');
+                if(calEffEl) {
                     const actualDeficit = dailyLoss * 7700;
                     const eff = (actualDeficit / estimatedTdee) * 100;
-                    AppState.el.calEfficiencyDisplay.innerText = `${eff.toFixed(1)}%`;
+                    calEffEl.innerText = `${eff.toFixed(1)}%`;
                 }
             } else {
-                AppState.el.estTdeeDisplay.innerText = '-';
-                if(AppState.el.calEfficiencyDisplay) AppState.el.calEfficiencyDisplay.innerText = '-';
+                AppState.getEl('estTdeeDisplay').innerText = '-';
+                const calEffEl = AppState.getEl('calEfficiencyDisplay');
+                if(calEffEl) calEffEl.innerText = '-';
             }
         } else {
-            AppState.el.estTdeeDisplay.innerText = '데이터 수집중';
-            if(AppState.el.calEfficiencyDisplay) AppState.el.calEfficiencyDisplay.innerText = '-';
+            AppState.getEl('estTdeeDisplay').innerText = '데이터 수집중';
+            const calEffEl = AppState.getEl('calEfficiencyDisplay');
+            if(calEffEl) calEffEl.innerText = '-';
         }
 
         const totalLost = MathUtil.diff(AppState.settings.startWeight, s.current);
         const totalDays = DateUtil.daysBetween(startD, lastD) || 1;
         const weeklyEff = (totalLost / totalDays) * 7;
-        AppState.el.weeklyEffDisplay.innerText = `${weeklyEff.toFixed(2)} kg/주`;
+        AppState.getEl('weeklyEffDisplay').innerText = `${weeklyEff.toFixed(2)} kg/주`;
 
-        // [NEW] 다이어트 가성비 (Cost of Diet)
         if(totalLost > 0) {
             const cost = totalDays / totalLost;
-            AppState.el.dietCostDisplay.innerText = `${cost.toFixed(1)}일/kg`;
+            AppState.getEl('dietCostDisplay').innerText = `${cost.toFixed(1)}일/kg`;
         } else {
-            AppState.el.dietCostDisplay.innerText = '-';
+            AppState.getEl('dietCostDisplay').innerText = '-';
         }
 
-        // [NEW] 주말 여파 지수 (Weekend Impact)
         const weekendImpacts = [];
         for(let i=1; i<AppState.records.length; i++) {
             const d = DateUtil.parse(AppState.records[i].date);
-            if(d.getDay() === 1) { // 월요일
-                // 이전 금요일 찾기 (3일전)
+            if(d.getDay() === 1) { 
                 const prevFriDate = new Date(d);
                 prevFriDate.setDate(d.getDate() - 3);
                 const prevFriStr = DateUtil.format(prevFriDate);
@@ -884,15 +885,17 @@
                 }
             }
         }
+        const wImpactEl = AppState.getEl('weekendImpactDisplay');
         if(weekendImpacts.length > 0) {
             const avgImpact = weekendImpacts.reduce((a,b)=>a+b,0) / weekendImpacts.length;
             const sign = avgImpact > 0 ? '+' : '';
-            AppState.el.weekendImpactDisplay.innerText = `${sign}${avgImpact.toFixed(2)}kg`;
-            DomUtil.setTextColor(AppState.el.weekendImpactDisplay, avgImpact > 0 ? 'danger' : 'primary');
+            wImpactEl.innerText = `${sign}${avgImpact.toFixed(2)}kg`;
+            DomUtil.setTextColor(wImpactEl, avgImpact > 0 ? 'danger' : 'primary');
         } else {
-            AppState.el.weekendImpactDisplay.innerText = '-';
+            wImpactEl.innerText = '-';
         }
 
+        const shortTrendEl = AppState.getEl('shortTrendDisplay');
         if(AppState.records.length >= 3) {
             const r3 = AppState.records[AppState.records.length-3];
             const r1 = AppState.records[AppState.records.length-1];
@@ -903,57 +906,62 @@
             else if(diff3 > 0.4) msg = "📈 급상승";
             else if(diff3 > 0) msg = "↗ 상승세";
             
-            AppState.el.shortTrendDisplay.innerText = msg;
-            DomUtil.setTextColor(AppState.el.shortTrendDisplay, diff3 > 0 ? 'danger' : (diff3 < 0 ? 'primary' : 'default'));
+            shortTrendEl.innerText = msg;
+            DomUtil.setTextColor(shortTrendEl, diff3 > 0 ? 'danger' : (diff3 < 0 ? 'primary' : 'default'));
             
-            // 신규 지표: 최근 3일간 평균 변동량
-            const avgDiff3 = diff3 / 2; // (오늘-그제) / 2일간
-            if(AppState.el.recent3DayAvgDisplay) AppState.el.recent3DayAvgDisplay.innerText = `${(avgDiff3).toFixed(2)} kg/일`;
+            const avgDiff3 = diff3 / 2; 
+            const r3AvgEl = AppState.getEl('recent3DayAvgDisplay');
+            if(r3AvgEl) r3AvgEl.innerText = `${(avgDiff3).toFixed(2)} kg/일`;
         } else {
-            AppState.el.shortTrendDisplay.innerText = '-';
-            if(AppState.el.recent3DayAvgDisplay) AppState.el.recent3DayAvgDisplay.innerText = '-';
+            shortTrendEl.innerText = '-';
+            const r3AvgEl = AppState.getEl('recent3DayAvgDisplay');
+            if(r3AvgEl) r3AvgEl.innerText = '-';
         }
 
+        const waterEl = AppState.getEl('waterIndexDisplay');
         if(AppState.records.length >= 7) {
              const last7 = AppState.records.slice(-7);
              const avg7 = last7.reduce((a,b)=>a+b.weight,0)/last7.length;
              const dev = MathUtil.diff(s.current, avg7);
-             AppState.el.waterIndexDisplay.innerText = (dev > 0 ? '+' : '') + dev.toFixed(1) + 'kg';
-             DomUtil.setTextColor(AppState.el.waterIndexDisplay, dev > 0.5 ? 'danger' : (dev < -0.5 ? 'primary' : 'default'));
+             waterEl.innerText = (dev > 0 ? '+' : '') + dev.toFixed(1) + 'kg';
+             DomUtil.setTextColor(waterEl, dev > 0.5 ? 'danger' : (dev < -0.5 ? 'primary' : 'default'));
              
-             // 신규 지표: 체중 변화 속도 (주단위)
              const startW7 = last7[0].weight;
              const endW7 = last7[last7.length-1].weight;
              const wSpeed = MathUtil.diff(endW7, startW7);
-             if(AppState.el.weeklySpeedDisplay) AppState.el.weeklySpeedDisplay.innerText = `${wSpeed.toFixed(2)} kg/주`;
+             const wSpeedEl = AppState.getEl('weeklySpeedDisplay');
+             if(wSpeedEl) wSpeedEl.innerText = `${wSpeed.toFixed(2)} kg/주`;
              
-             // 신규 지표: 체중 변동성 지수
              const stdDev7 = MathUtil.stdDev(last7.map(r=>r.weight));
-             const volIdx = stdDev7 * 10; // 스케일링
-             if(AppState.el.volatilityIndexDisplay) AppState.el.volatilityIndexDisplay.innerText = volIdx.toFixed(1);
+             const volIdx = stdDev7 * 10;
+             const volEl = AppState.getEl('volatilityIndexDisplay');
+             if(volEl) volEl.innerText = volIdx.toFixed(1);
 
-             // 신규 지표: 요요 발생 가능성 (Yoyo Risk)
              let riskScore = 0;
-             if(wSpeed < -1.5) riskScore += 40; // 주당 1.5kg 이상 급감
+             if(wSpeed < -1.5) riskScore += 40; 
              else if(wSpeed < -1.0) riskScore += 20;
-             if(stdDev7 > 0.5) riskScore += 30; // 변동성 큼
-             if(dev > 1.0) riskScore += 30; // 최근 급증
+             if(stdDev7 > 0.5) riskScore += 30; 
+             if(dev > 1.0) riskScore += 30; 
              
              let riskLabel = '낮음';
              let riskColor = 'primary';
              if(riskScore >= 70) { riskLabel = '높음'; riskColor = 'danger'; }
              else if(riskScore >= 40) { riskLabel = '중간'; riskColor = 'accent'; }
              
-             if(AppState.el.yoyoRiskDisplay) {
-                 AppState.el.yoyoRiskDisplay.innerText = `${riskScore}점 (${riskLabel})`;
-                 DomUtil.setTextColor(AppState.el.yoyoRiskDisplay, riskColor);
+             const yoyoEl = AppState.getEl('yoyoRiskDisplay');
+             if(yoyoEl) {
+                 yoyoEl.innerText = `${riskScore}점 (${riskLabel})`;
+                 DomUtil.setTextColor(yoyoEl, riskColor);
              }
 
         } else {
-            AppState.el.waterIndexDisplay.innerText = '-';
-            if(AppState.el.weeklySpeedDisplay) AppState.el.weeklySpeedDisplay.innerText = '-';
-            if(AppState.el.volatilityIndexDisplay) AppState.el.volatilityIndexDisplay.innerText = '-';
-            if(AppState.el.yoyoRiskDisplay) AppState.el.yoyoRiskDisplay.innerText = '-';
+            waterEl.innerText = '-';
+            const wSpeedEl = AppState.getEl('weeklySpeedDisplay');
+            if(wSpeedEl) wSpeedEl.innerText = '-';
+            const volEl = AppState.getEl('volatilityIndexDisplay');
+            if(volEl) volEl.innerText = '-';
+            const yoyoEl = AppState.getEl('yoyoRiskDisplay');
+            if(yoyoEl) yoyoEl.innerText = '-';
         }
 
         const startRecWithFat = AppState.records.find(r => r.fat);
@@ -969,20 +977,22 @@
              const totalLoss = fatLoss + leanLoss;
              const fatRatio = totalLoss > 0 ? (fatLoss/totalLoss)*100 : 0;
              
-             AppState.el.netChangeDisplay.innerText = `지방 ${fatLoss.toFixed(1)}kg 감량`;
-             AppState.el.netChangeSubDisplay.innerText = `(감량분의 ${Math.round(fatRatio)}%가 지방)`;
+             AppState.getEl('netChangeDisplay').innerText = `지방 ${fatLoss.toFixed(1)}kg 감량`;
+             AppState.getEl('netChangeSubDisplay').innerText = `(감량분의 ${Math.round(fatRatio)}%가 지방)`;
              
-             // 신규 지표: 체성분 균형 지수
              const balance = (currLeanKg / currFatKg).toFixed(2);
-             if(AppState.el.bodyCompBalanceDisplay) AppState.el.bodyCompBalanceDisplay.innerText = `${balance} : 1`;
+             const balEl = AppState.getEl('bodyCompBalanceDisplay');
+             if(balEl) balEl.innerText = `${balance} : 1`;
              
-             // 신규 지표: 체성분 변화 추이
-             if(AppState.el.bodyCompTrendDisplay) AppState.el.bodyCompTrendDisplay.innerText = `근육 ${leanLoss > 0 ? '-' : '+'}${Math.abs(leanLoss).toFixed(1)}kg`;
+             const trendEl = AppState.getEl('bodyCompTrendDisplay');
+             if(trendEl) trendEl.innerText = `근육 ${leanLoss > 0 ? '-' : '+'}${Math.abs(leanLoss).toFixed(1)}kg`;
         } else {
-             AppState.el.netChangeDisplay.innerText = '-';
-             AppState.el.netChangeSubDisplay.innerText = '체지방 데이터 필요';
-             if(AppState.el.bodyCompBalanceDisplay) AppState.el.bodyCompBalanceDisplay.innerText = '-';
-             if(AppState.el.bodyCompTrendDisplay) AppState.el.bodyCompTrendDisplay.innerText = '-';
+             AppState.getEl('netChangeDisplay').innerText = '-';
+             AppState.getEl('netChangeSubDisplay').innerText = '체지방 데이터 필요';
+             const balEl = AppState.getEl('bodyCompBalanceDisplay');
+             if(balEl) balEl.innerText = '-';
+             const trendEl = AppState.getEl('bodyCompTrendDisplay');
+             if(trendEl) trendEl.innerText = '-';
         }
 
         const now = new Date();
@@ -990,52 +1000,55 @@
         const recentRecs30 = AppState.records.filter(r => DateUtil.parse(r.date) >= thirtyDaysAgo);
         const uniqueDays = new Set(recentRecs30.map(r => r.date)).size;
         const score = Math.min(100, Math.round((uniqueDays / 30) * 100));
-        AppState.el.consistencyDisplay.innerText = `${score}%`;
+        AppState.getEl('consistencyDisplay').innerText = `${score}%`;
         
-        // 신규 지표: 감량 일관성 지수
-        let lossDays = 0;
+        const lcEl = AppState.getEl('lossConsistencyDisplay');
         if(recentRecs30.length > 1) {
+            let lossDays = 0;
             for(let i=1; i<recentRecs30.length; i++) {
                 if(recentRecs30[i].weight < recentRecs30[i-1].weight) lossDays++;
             }
             const lossConsistency = (lossDays / (recentRecs30.length - 1)) * 100;
-            if(AppState.el.lossConsistencyDisplay) AppState.el.lossConsistencyDisplay.innerText = `${lossConsistency.toFixed(0)}%`;
+            if(lcEl) lcEl.innerText = `${lossConsistency.toFixed(0)}%`;
         } else {
-            if(AppState.el.lossConsistencyDisplay) AppState.el.lossConsistencyDisplay.innerText = '-';
+            if(lcEl) lcEl.innerText = '-';
         }
 
         const remW = MathUtil.diff(s.current, AppState.settings.goal1);
+        const defEl = AppState.getEl('deficitDisplay');
+        const idealWEl = AppState.getEl('idealWeeklyRateDisplay');
+        
         if(remW > 0) {
             const calToLose = remW * 7700;
             const daysToGoal = 90;
             const reqDeficit = Math.round(calToLose / daysToGoal);
-            AppState.el.deficitDisplay.innerText = `-${reqDeficit} kcal/일`;
+            defEl.innerText = `-${reqDeficit} kcal/일`;
             
-            // 신규 지표: 이상적인 주간 감량률
             const idealWeekly = (remW / (daysToGoal / 7)).toFixed(2);
-            if(AppState.el.idealWeeklyRateDisplay) AppState.el.idealWeeklyRateDisplay.innerText = `-${idealWeekly} kg/주`;
+            if(idealWEl) idealWEl.innerText = `-${idealWeekly} kg/주`;
         } else {
-             AppState.el.deficitDisplay.innerText = '목표 달성!';
-             if(AppState.el.idealWeeklyRateDisplay) AppState.el.idealWeeklyRateDisplay.innerText = '완료';
+             defEl.innerText = '목표 달성!';
+             if(idealWEl) idealWEl.innerText = '완료';
         }
 
         if(lastRec.fat) {
             const hMeter = AppState.settings.height/100;
             const lbm = lastRec.weight * (1 - lastRec.fat/100);
             const ffmi = lbm / (hMeter * hMeter);
-            AppState.el.ffmiDisplay.innerText = ffmi.toFixed(1);
+            AppState.getEl('ffmiDisplay').innerText = ffmi.toFixed(1);
         } else {
-             AppState.el.ffmiDisplay.innerText = '-';
+             AppState.getEl('ffmiDisplay').innerText = '-';
         }
     }
 
 	function renderAdvancedText(s) {
         if(AppState.records.length < 5) {
-            AppState.el.advancedAnalysisList.innerHTML = '<li class="insight-item">데이터가 5개 이상 쌓이면 분석을 제공합니다.</li>';
+            AppState.getEl('advancedAnalysisList').innerHTML = '<li class="insight-item">데이터가 5개 이상 쌓이면 분석을 제공합니다.</li>';
             return;
         }
 
-        let html = '';
+        // [Refactor] 배열 기반으로 HTML 문자열 조합 (리플로우 최소화)
+        let htmlLines = [];
 
         const dayDeltas = [0,0,0,0,0,0,0]; 
         const dayCounts = [0,0,0,0,0,0,0];
@@ -1050,18 +1063,15 @@
         const worstDayIdx = dayAvgs.indexOf(Math.max(...dayAvgs));
         const dayNames = ['일','월','화','수','목','금','토'];
         
-        html += `<li class="insight-item"><span class="insight-label">🧐 요일 승률:</span> 
+        htmlLines.push(`<li class="insight-item"><span class="insight-label">🧐 요일 승률:</span> 
             <strong>${dayNames[bestDayIdx]}요일</strong>에 가장 잘 빠지고, 
-            <strong>${dayNames[worstDayIdx]}요일</strong>에 주의가 필요합니다.</li>`;
+            <strong>${dayNames[worstDayIdx]}요일</strong>에 주의가 필요합니다.</li>`);
 
-        // [NEW] 패턴 감지 (28일 주기)
         let cyclePattern = false;
         if(AppState.records.length > 60) {
-            // 대략적인 로직: 28일 간격으로 증량 스파이크가 있는지 확인
             let spikeCount = 0;
             const reversed = [...AppState.records].reverse();
             for(let i=0; i<reversed.length-30; i+=28) {
-                // 해당 구간 근처에서 증량이 있었는지 체크
                 let hasGain = false;
                 for(let j=0; j<5; j++) {
                     if(i+j+1 < reversed.length && reversed[i+j].weight > reversed[i+j+1].weight + 0.5) hasGain = true;
@@ -1071,21 +1081,19 @@
             if(spikeCount >= 2) cyclePattern = true;
         }
         if(cyclePattern) {
-            html += `<li class="insight-item"><span class="insight-label">🔄 패턴 감지:</span> 
-                "약 28일 주기로 체중이 일시적으로 증가하는 패턴이 감지됩니다. 자연스러운 현상이니 당황하지 마세요."</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">🔄 패턴 감지:</span> 
+                "약 28일 주기로 체중이 일시적으로 증가하는 패턴이 감지됩니다. 자연스러운 현상이니 당황하지 마세요."</li>`);
         }
 
-        // [NEW] 리바운드 경고
         if(AppState.records.length >= 3) {
             const last3 = AppState.records.slice(-3);
             const drop3 = last3[0].weight - last3[2].weight;
             if(drop3 >= 2.0) {
-                html += `<li class="insight-item text-danger"><span class="insight-label">⚠️ 리바운드 경고:</span> 
-                    "최근 급격한 감량(-${drop3.toFixed(1)}kg/3일)이 있었습니다. 통계적으로 이런 급감 후에는 48시간 내에 반등할 확률이 높습니다. 식단에 유의하세요."</li>`;
+                htmlLines.push(`<li class="insight-item text-danger"><span class="insight-label">⚠️ 리바운드 경고:</span> 
+                    "최근 급격한 감량(-${drop3.toFixed(1)}kg/3일)이 있었습니다. 통계적으로 이런 급감 후에는 48시간 내에 반등할 확률이 높습니다. 식단에 유의하세요."</li>`);
             }
         }
 
-        // [NEW] 시즈널리티 분석
         const monthlyGains = {};
         for(let i=1; i<AppState.records.length; i++) {
             const m = DateUtil.parse(AppState.records[i].date).getMonth() + 1;
@@ -1098,11 +1106,10 @@
             if(monthlyGains[m] > maxVal) { maxVal = monthlyGains[m]; worstMonth = m; }
         });
         if(maxVal > 1.0) {
-            html += `<li class="insight-item"><span class="insight-label">🍂 시즈널리티:</span> 
-                "<strong>${worstMonth}월</strong>에 체중이 증가하는 경향이 있습니다. 해당 시기에 활동량 저하를 주의하세요."</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">🍂 시즈널리티:</span> 
+                "<strong>${worstMonth}월</strong>에 체중이 증가하는 경향이 있습니다. 해당 시기에 활동량 저하를 주의하세요."</li>`);
         }
 
-        // 심층 분석 1: 치팅 데이 여파 분석
         const recoveries = [];
         for(let i=1; i<AppState.records.length; i++) {
             const diff = MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight);
@@ -1125,10 +1132,9 @@
                 counts[key] = (counts[key] || 0) + 1;
             });
             const bestPattern = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
-            html += `<li class="insight-item"><span class="insight-label">🍔 치팅 여파:</span> "${bestPattern}에 다 빠집니다."</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">🍔 치팅 여파:</span> "${bestPattern}에 다 빠집니다."</li>`);
         }
 
-        // 심층 분석 2: 최적 감량 구간 발견
         const zones = {};
         for(let i=10; i<AppState.records.length; i++) {
             const zone = Math.floor(AppState.records[i].weight);
@@ -1143,8 +1149,8 @@
         if(zoneStats.length >= 2) {
             const best = zoneStats[0];
             const worst = zoneStats[zoneStats.length-1];
-            html += `<li class="insight-item"><span class="insight-label">📉 구간 분석:</span> 
-                "${best.zone}kg대에서 가장 빠르게 감량되었습니다. ${worst.zone}kg대에서는 상대적으로 속도가 느려집니다."</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">📉 구간 분석:</span> 
+                "${best.zone}kg대에서 가장 빠르게 감량되었습니다. ${worst.zone}kg대에서는 상대적으로 속도가 느려집니다."</li>`);
         }
 
         let maxPlateau = 0, currPlateau = 0;
@@ -1155,8 +1161,8 @@
             if(currPlateau > maxPlateau) maxPlateau = currPlateau;
         }
         if(maxPlateau >= 3) {
-            html += `<li class="insight-item"><span class="insight-label">⏳ 최장 정체기:</span> 
-                체중 변화가 거의 없던 최장 기간은 <strong>${maxPlateau}일</strong> 입니다.</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">⏳ 최장 정체기:</span> 
+                체중 변화가 거의 없던 최장 기간은 <strong>${maxPlateau}일</strong> 입니다.</li>`);
         }
 
         if(s.diffs && s.diffs.length > 0) {
@@ -1166,8 +1172,8 @@
             let volScore = Math.max(0, 100 - (stdDev * 50)); 
             let volMsg = volScore > 80 ? "매우 안정적" : (volScore > 50 ? "보통" : "롤러코스터 🎢");
             
-            html += `<li class="insight-item"><span class="insight-label">🎢 요요 인덱스:</span> 
-                변동성 점수 <strong>${Math.round(volScore)}점</strong> (${volMsg}) 입니다.</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">🎢 요요 인덱스:</span> 
+                변동성 점수 <strong>${Math.round(volScore)}점</strong> (${volMsg}) 입니다.</li>`);
         }
 
         const remaining = MathUtil.diff(s.current, AppState.settings.goal1);
@@ -1192,13 +1198,12 @@
             if(currentSpeed > 0.01) {
                 const daysCur = remaining / currentSpeed;
                 
-                // [NEW] 목표 달성일 신뢰도 구간 (단순화된 텍스트)
                 const dTarget = new Date(); dTarget.setDate(dTarget.getDate() + daysCur);
                 const dEarly = new Date(); dEarly.setDate(dEarly.getDate() + daysCur * 0.9);
                 const dLate = new Date(); dLate.setDate(dLate.getDate() + daysCur * 1.1);
                 
-                html += `<li class="insight-item"><span class="insight-label">🎯 신뢰도 구간:</span> 
-                    "현재 속도라면 90% 확률로 <strong>${DateUtil.format(dEarly)}</strong>에서 <strong>${DateUtil.format(dLate)}</strong> 사이에 목표를 달성합니다."</li>`;
+                htmlLines.push(`<li class="insight-item"><span class="insight-label">🎯 신뢰도 구간:</span> 
+                    "현재 속도라면 90% 확률로 <strong>${DateUtil.format(dEarly)}</strong>에서 <strong>${DateUtil.format(dLate)}</strong> 사이에 목표를 달성합니다."</li>`);
             } 
         }
 
@@ -1218,16 +1223,16 @@
             else if(loss > 1 && consistency > 60) grade = 'B';
             else if(loss < 0) grade = 'D';
 
-            html += `<li class="insight-item"><span class="insight-label">🗓️ 월간 성적표:</span>
-                이번 달 성적은 <strong>${grade}</strong>입니다! (감량 ${loss.toFixed(1)}kg)</li>`;
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">🗓️ 월간 성적표:</span>
+                이번 달 성적은 <strong>${grade}</strong>입니다! (감량 ${loss.toFixed(1)}kg)</li>`);
         }
 
         if(AppState.records.length > 7) {
             const last7 = AppState.records.slice(-7);
             const totalDrop = MathUtil.diff(last7[0].weight, last7[last7.length-1].weight);
             if(totalDrop > 2.0) { 
-                html += `<li class="insight-item text-danger"><span class="insight-label">🔄 요요 위험도 경고:</span>
-                    최근 감량 속도가 너무 빠릅니다. 급격한 감량은 요요를 부를 수 있습니다.</li>`;
+                htmlLines.push(`<li class="insight-item text-danger"><span class="insight-label">🔄 요요 위험도 경고:</span>
+                    최근 감량 속도가 너무 빠릅니다. 급격한 감량은 요요를 부를 수 있습니다.</li>`);
             }
         }
 
@@ -1244,20 +1249,21 @@
                 }
             }
             if(maxLoss30 > 0) {
-                 html += `<li class="insight-item"><span class="insight-label">🏆 베스트 퍼포먼스:</span>
-                    <strong>${bestPeriod}</strong> 기간에 <strong>${maxLoss30.toFixed(1)}kg</strong> 감량한 기록이 있습니다.</li>`;
+                 htmlLines.push(`<li class="insight-item"><span class="insight-label">🏆 베스트 퍼포먼스:</span>
+                    <strong>${bestPeriod}</strong> 기간에 <strong>${maxLoss30.toFixed(1)}kg</strong> 감량한 기록이 있습니다.</li>`);
             }
         }
 
-        AppState.el.advancedAnalysisList.innerHTML = html;
+        AppState.getEl('advancedAnalysisList').innerHTML = htmlLines.join('');
     }
 
-    // --- 정체기 돌파 도우미 렌더링 (신규) ---
+    // --- 정체기 돌파 도우미 렌더링 ---
     function renderPlateauHelper(s) {
-        if (!AppState.el.plateauHelperText) return;
-        const recent = AppState.records.slice(-14); // 최근 2주
+        const phEl = AppState.getEl('plateauHelperText');
+        if (!phEl) return;
+        const recent = AppState.records.slice(-14); 
         if (recent.length < 7) {
-            AppState.el.plateauHelperText.innerText = "데이터가 충분하지 않습니다. 7일 이상 기록해주세요.";
+            phEl.innerText = "데이터가 충분하지 않습니다. 7일 이상 기록해주세요.";
             return;
         }
         
@@ -1284,12 +1290,13 @@
             if (lastW < firstW) msg = "📉 현재 감량 흐름이 좋습니다! 이대로 유지하세요!";
             else msg = "📈 약간의 증량이 있지만, 일시적인 현상일 수 있습니다.";
         }
-        AppState.el.plateauHelperText.innerHTML = msg;
+        phEl.innerHTML = msg;
     }
 
-    // --- 기간별 기록 요약 및 비교 렌더링 (신규) ---
+    // --- 기간별 기록 요약 및 비교 렌더링 ---
     function renderPeriodComparison() {
-        if (!AppState.el.periodCompareTable) return;
+        const table = AppState.getEl('periodCompareTable');
+        if (!table) return;
         const now = new Date();
         const threeMonthsAgo = new Date(now); threeMonthsAgo.setMonth(now.getMonth() - 3);
         const oneYearAgo = new Date(now); oneYearAgo.setFullYear(now.getFullYear() - 1);
@@ -1303,55 +1310,56 @@
             const avgW = recs.reduce((a,b) => a+b.weight, 0) / recs.length;
             const loss = MathUtil.diff(recs[0].weight, recs[recs.length-1].weight);
             const days = DateUtil.daysBetween(DateUtil.parse(recs[0].date), DateUtil.parse(recs[recs.length-1].date)) || 1;
-            const speed = loss / days * 7; // 주간 속도
+            const speed = loss / days * 7; 
             return { avgW, loss, speed };
         };
 
         const currentStats = getStats(threeMonthsAgo, now);
         const pastStats = getStats(new Date(oneYearAgo.setMonth(oneYearAgo.getMonth()-3)), new Date(now.getFullYear()-1, now.getMonth(), now.getDate()));
 
-        let html = "";
+        let rows = [];
         if (currentStats) {
-            html += `<tr><td>최근 3개월</td><td>${currentStats.avgW.toFixed(1)}</td><td>${currentStats.loss.toFixed(1)}</td><td>${currentStats.speed.toFixed(2)} kg/주</td></tr>`;
+            rows.push(`<tr><td>최근 3개월</td><td>${currentStats.avgW.toFixed(1)}</td><td>${currentStats.loss.toFixed(1)}</td><td>${currentStats.speed.toFixed(2)} kg/주</td></tr>`);
         } else {
-            html += `<tr><td>최근 3개월</td><td colspan="3">데이터 부족</td></tr>`;
+            rows.push(`<tr><td>최근 3개월</td><td colspan="3">데이터 부족</td></tr>`);
         }
         
         if (pastStats) {
-            html += `<tr><td>작년 동기</td><td>${pastStats.avgW.toFixed(1)}</td><td>${pastStats.loss.toFixed(1)}</td><td>${pastStats.speed.toFixed(2)} kg/주</td></tr>`;
+            rows.push(`<tr><td>작년 동기</td><td>${pastStats.avgW.toFixed(1)}</td><td>${pastStats.loss.toFixed(1)}</td><td>${pastStats.speed.toFixed(2)} kg/주</td></tr>`);
         } else {
-             html += `<tr><td>작년 동기</td><td colspan="3">데이터 없음</td></tr>`;
+             rows.push(`<tr><td>작년 동기</td><td colspan="3">데이터 없음</td></tr>`);
         }
-        AppState.el.periodCompareTable.innerHTML = html;
+        table.innerHTML = rows.join('');
     }
 
-    // --- 상세 통계 렌더링 (신규) ---
+    // --- 상세 통계 렌더링 ---
     function renderDetailedStats(s) {
-        if (!AppState.el.detailedStatsTable) return;
+        const table = AppState.getEl('detailedStatsTable');
+        if (!table) return;
         if (AppState.records.length < 2) {
-            AppState.el.detailedStatsTable.innerHTML = "<tr><td colspan='2'>데이터 부족</td></tr>";
+            table.innerHTML = "<tr><td colspan='2'>데이터 부족</td></tr>";
             return;
         }
         
-        let html = "";
-        html += `<tr><td>최고 체중 기록일</td><td>${s.maxDate} (${s.max}kg)</td></tr>`;
-        html += `<tr><td>최저 체중 기록일</td><td>${s.minDate} (${s.min}kg)</td></tr>`;
-        html += `<tr><td>체중 표준 편차</td><td>${s.stdDev.toFixed(2)}</td></tr>`;
-        html += `<tr><td>체지방량 변화</td><td>${s.fatChange ? s.fatChange.toFixed(1) + 'kg' : '-'}</td></tr>`;
-        html += `<tr><td>제지방량 변화</td><td>${s.lbmChange ? s.lbmChange.toFixed(1) + 'kg' : '-'}</td></tr>`;
-        html += `<tr><td>최대 일일 감량</td><td>${s.maxDrop}kg</td></tr>`;
-        html += `<tr><td>최대 일일 증량</td><td>${s.maxGain}kg</td></tr>`;
-        html += `<tr><td>최장 정체기</td><td>${s.maxPlateau}일</td></tr>`;
+        let rows = [];
+        rows.push(`<tr><td>최고 체중 기록일</td><td>${s.maxDate} (${s.max}kg)</td></tr>`);
+        rows.push(`<tr><td>최저 체중 기록일</td><td>${s.minDate} (${s.min}kg)</td></tr>`);
+        rows.push(`<tr><td>체중 표준 편차</td><td>${s.stdDev.toFixed(2)}</td></tr>`);
+        rows.push(`<tr><td>체지방량 변화</td><td>${s.fatChange ? s.fatChange.toFixed(1) + 'kg' : '-'}</td></tr>`);
+        rows.push(`<tr><td>제지방량 변화</td><td>${s.lbmChange ? s.lbmChange.toFixed(1) + 'kg' : '-'}</td></tr>`);
+        rows.push(`<tr><td>최대 일일 감량</td><td>${s.maxDrop}kg</td></tr>`);
+        rows.push(`<tr><td>최대 일일 증량</td><td>${s.maxGain}kg</td></tr>`);
+        rows.push(`<tr><td>최장 정체기</td><td>${s.maxPlateau}일</td></tr>`);
         
-        AppState.el.detailedStatsTable.innerHTML = html;
+        table.innerHTML = rows.join('');
     }
     
-    // --- [NEW] 확장 통계 렌더링 ---
+    // --- 확장 통계 렌더링 ---
     function renderExtendedStats() {
         if(AppState.records.length < 2) return;
 
         // 1. 요일별 승률 (Daily Win Rate)
-        const winStats = [0,0,0,0,0,0,0]; // counts
+        const winStats = [0,0,0,0,0,0,0]; 
         const totalStats = [0,0,0,0,0,0,0]; 
         const dayNames = ['일','월','화','수','목','금','토'];
         for(let i=1; i<AppState.records.length; i++) {
@@ -1359,12 +1367,12 @@
             if(AppState.records[i].weight < AppState.records[i-1].weight) winStats[d]++;
             totalStats[d]++;
         }
-        let winHtml = "";
+        let winRows = [];
         dayNames.forEach((name, i) => {
             const rate = totalStats[i] > 0 ? (winStats[i] / totalStats[i] * 100).toFixed(0) : 0;
-            winHtml += `<tr><td>${name}</td><td>${rate}% (${winStats[i]}/${totalStats[i]})</td></tr>`;
+            winRows.push(`<tr><td>${name}</td><td>${rate}% (${winStats[i]}/${totalStats[i]})</td></tr>`);
         });
-        AppState.el.dailyWinRateTable.innerHTML = winHtml;
+        AppState.getEl('dailyWinRateTable').innerHTML = winRows.join('');
 
         // 2. 구간별 체류 시간 (Zone Duration)
         const zones = {};
@@ -1374,11 +1382,11 @@
             if(!zones[key]) zones[key] = 0;
             zones[key]++;
         });
-        let zoneHtml = "";
+        let zoneRows = [];
         Object.keys(zones).sort().reverse().forEach(z => {
-            zoneHtml += `<tr><td>${z}</td><td>${zones[z]}일</td></tr>`;
+            zoneRows.push(`<tr><td>${z}</td><td>${zones[z]}일</td></tr>`);
         });
-        AppState.el.zoneDurationTable.innerHTML = zoneHtml;
+        AppState.getEl('zoneDurationTable').innerHTML = zoneRows.join('');
 
         // 3. 연속 기록 상세
         let maxLossStreak = 0, currLossStreak = 0;
@@ -1390,7 +1398,6 @@
             const diff = AppState.records[i].weight - AppState.records[i-1].weight;
             const dayDiff = DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date));
             
-            // 연속 기록
             if(dayDiff === 1) {
                 currRecStreak++;
                 if(currRecStreak > maxRecStreak) maxRecStreak = currRecStreak;
@@ -1399,7 +1406,6 @@
                 if(dayDiff > maxGap) maxGap = dayDiff;
             }
 
-            // 감량/증량 스트릭
             if(diff < 0) {
                 currLossStreak++; currGainStreak = 0;
                 if(currLossStreak > maxLossStreak) maxLossStreak = currLossStreak;
@@ -1416,7 +1422,7 @@
             <tr><td>최장 연속 기록</td><td>${maxRecStreak}일</td></tr>
             <tr><td>최장 미기록(공백)</td><td>${maxGap}일</td></tr>
         `;
-        AppState.el.streakDetailTable.innerHTML = streakHtml;
+        AppState.getEl('streakDetailTable').innerHTML = streakHtml;
 
         // 4. 최고의 달 / 최악의 달
         const monthDiffs = {};
@@ -1430,17 +1436,17 @@
         const best3 = sortedMonths.slice(0, 3);
         const worst3 = sortedMonths.slice().reverse().slice(0, 3);
         
-        let bwHtml = "";
+        let bwRows = [];
         for(let i=0; i<3; i++) {
             const best = best3[i];
             const worst = worst3[i];
-            bwHtml += `<tr>
+            bwRows.push(`<tr>
                 <td>${i+1}위</td>
                 <td>${best ? best.m + ' (' + best.v.toFixed(1) + 'kg)' : '-'}</td>
                 <td>${worst ? worst.m + ' (+' + worst.v.toFixed(1) + 'kg)' : '-'}</td>
-            </tr>`;
+            </tr>`);
         }
-        AppState.el.bestWorstMonthTable.innerHTML = bwHtml;
+        AppState.getEl('bestWorstMonthTable').innerHTML = bwRows.join('');
     }
 	
     function updateProgressBar(current, lost, percent, remaining) {
@@ -1448,12 +1454,16 @@
         if(visualPercent < 0) visualPercent = 0;
         if(visualPercent > 100) visualPercent = 100;
 
-        AppState.el.labelStart.innerText = `시작: ${AppState.settings.startWeight}kg`;
-        AppState.el.labelGoal.innerText = `목표: ${AppState.settings.goal1}kg`;
+        AppState.getEl('labelStart').innerText = `시작: ${AppState.settings.startWeight}kg`;
+        AppState.getEl('labelGoal').innerText = `목표: ${AppState.settings.goal1}kg`;
 
-        AppState.el.progressBarFill.style.width = `${visualPercent}%`;
-        AppState.el.progressEmoji.style.right = `${visualPercent}%`;
-        AppState.el.progressText.style.right = `${visualPercent}%`;
+        const fill = AppState.getEl('progressBarFill');
+        const emoji = AppState.getEl('progressEmoji');
+        const text = AppState.getEl('progressText');
+
+        fill.style.width = `${visualPercent}%`;
+        emoji.style.right = `${visualPercent}%`;
+        text.style.right = `${visualPercent}%`;
 
         const displayLost = Math.abs(lost).toFixed(1);
         const displayPercent = percent.toFixed(1);
@@ -1466,7 +1476,7 @@
         let statusMsg = "";
         if (remaining <= 0) statusMsg = "🎉 목표 달성!";
 
-        AppState.el.progressText.innerHTML = `
+        text.innerHTML = `
             <strong>${current.toFixed(1)}kg</strong> ${statusMsg}<br>
             감량: ${displayLost}kg (${displayPercent}%)<br>
             남은: ${safeRemain}kg (${displayRemainPercent}%)
@@ -1474,7 +1484,6 @@
     }
 
     function updateBmiProgressBar(bmi, label) {
-        // BMI 스케일 설정 (10 ~ 35)
         const minScale = 10;
         const maxScale = 35;
         
@@ -1482,33 +1491,35 @@
         let visualPercent = MathUtil.clamp(pct, 0, 100);
         let rightPos = 100 - visualPercent;
 
-        if (!AppState.el.bmiProgressBarFill) return;
+        const fill = AppState.getEl('bmiProgressBarFill');
+        if (!fill) return;
 
-        AppState.el.bmiLabelLeft.innerText = `BMI ${minScale}`;
-        AppState.el.bmiLabelRight.innerText = `BMI ${maxScale}`;
+        AppState.getEl('bmiLabelLeft').innerText = `BMI ${minScale}`;
+        AppState.getEl('bmiLabelRight').innerText = `BMI ${maxScale}`;
 
-        AppState.el.bmiProgressBarFill.style.width = `${visualPercent}%`;
-        AppState.el.bmiProgressEmoji.style.right = `${rightPos}%`;
-        AppState.el.bmiProgressText.style.right = `${rightPos}%`;
+        fill.style.width = `${visualPercent}%`;
+        AppState.getEl('bmiProgressEmoji').style.right = `${rightPos}%`;
+        AppState.getEl('bmiProgressText').style.right = `${rightPos}%`;
 
-        AppState.el.bmiProgressText.innerHTML = `
+        AppState.getEl('bmiProgressText').innerHTML = `
             <strong>BMI ${bmi}</strong><br>
             ${label}
         `;
     }
     
     function renderAnalysisText() {
+        const txtEl = AppState.getEl('analysisText');
         if (AppState.records.length < 2) {
-            AppState.el.analysisText.innerText = "데이터가 2개 이상 쌓이면 분석을 시작합니다. 화이팅!";
+            txtEl.innerText = "데이터가 2개 이상 쌓이면 분석을 시작합니다. 화이팅!";
             return;
         }
         const last = AppState.records[AppState.records.length-1];
         const prev = AppState.records[AppState.records.length-2];
         const diff = MathUtil.diff(last.weight, prev.weight);
         
-        if (diff < 0) AppState.el.analysisText.innerText = `어제보다 ${Math.abs(diff)}kg 빠졌습니다! 이대로 쭉 가봅시다! 🔥`;
-        else if (diff > 0) AppState.el.analysisText.innerText = `약간 증량(${diff}kg)했지만 괜찮습니다. 장기적인 추세가 중요합니다.`;
-        else AppState.el.analysisText.innerText = `체중 유지 중입니다. 꾸준함이 답입니다.`;
+        if (diff < 0) txtEl.innerText = `어제보다 ${Math.abs(diff)}kg 빠졌습니다! 이대로 쭉 가봅시다! 🔥`;
+        else if (diff > 0) txtEl.innerText = `약간 증량(${diff}kg)했지만 괜찮습니다. 장기적인 추세가 중요합니다.`;
+        else txtEl.innerText = `체중 유지 중입니다. 꾸준함이 답입니다.`;
     }
 
     function calculateScenarios(currentW) {
@@ -1641,11 +1652,11 @@
 
     // --- 7. 차트 그리기 함수들 (렌더링 최적화 및 인스턴스 관리 개선) ---
     function updateFilterButtons() {
-        AppState.el['btn-1m'].className = 'filter-btn' + (AppState.chartFilterMode==='1M'?' active':'');
-        AppState.el['btn-3m'].className = 'filter-btn' + (AppState.chartFilterMode==='3M'?' active':'');
-        AppState.el['btn-6m'].className = 'filter-btn' + (AppState.chartFilterMode==='6M'?' active':'');
-        AppState.el['btn-1y'].className = 'filter-btn' + (AppState.chartFilterMode==='1Y'?' active':'');
-        AppState.el['btn-all'].className = 'filter-btn' + (AppState.chartFilterMode==='ALL'?' active':'');
+        AppState.getEl('btn-1m').className = 'filter-btn' + (AppState.chartFilterMode==='1M'?' active':'');
+        AppState.getEl('btn-3m').className = 'filter-btn' + (AppState.chartFilterMode==='3M'?' active':'');
+        AppState.getEl('btn-6m').className = 'filter-btn' + (AppState.chartFilterMode==='6M'?' active':'');
+        AppState.getEl('btn-1y').className = 'filter-btn' + (AppState.chartFilterMode==='1Y'?' active':'');
+        AppState.getEl('btn-all').className = 'filter-btn' + (AppState.chartFilterMode==='ALL'?' active':'');
     }
 
     function setChartFilter(mode) {
@@ -1656,8 +1667,8 @@
     }
 
     function applyCustomDateRange() {
-        const s = AppState.el.chartStartDate.value;
-        const e = AppState.el.chartEndDate.value;
+        const s = AppState.getEl('chartStartDate').value;
+        const e = AppState.getEl('chartEndDate').value;
         if(s && e) {
             AppState.chartFilterMode = 'CUSTOM';
             AppState.customStart = s; AppState.customEnd = e;
@@ -1709,26 +1720,29 @@
         return { type, data, options: defaultOptions };
     }
 
-    // 차트 업데이트 헬퍼 (인스턴스 재사용 및 중복 생성 방지 강화)
+    // [Refactor] 차트 업데이트 헬퍼 개선 (Destroy 대신 Update 우선 사용)
     function updateChartHelper(key, ctx, config) {
         let chart = AppState.charts[key];
         const existingChartInstance = Chart.getChart(ctx);
 
-        // 캔버스에 이미 다른 차트 인스턴스가 있거나, 참조가 꼬인 경우 정리
+        // 컨텍스트 충돌 방지: 캔버스에 이미 연결된 인스턴스가 있는데 AppState와 다르다면 정리
         if (existingChartInstance && existingChartInstance !== chart) {
             existingChartInstance.destroy();
             chart = null;
         }
 
         if (chart) {
-            // 데이터와 옵션만 업데이트 (깜빡임 방지)
-            chart.data = config.data;
-            if (config.options) {
-                // 옵션 깊은 병합 대신 최상위 레벨 교체 (안전성 확보)
+            // 타입이 동일하면 데이터만 갱신 (성능 최적화)
+            if (chart.config.type === config.type) {
+                chart.data = config.data;
+                // 옵션 최상위 병합
                 Object.assign(chart.options, config.options);
-                // 스케일 옵션 등은 깊은 병합이 필요할 수 있으나 Chart.js update가 처리
+                chart.update('none'); // 애니메이션 없이 즉시 갱신
+            } else {
+                // 차트 타입이 변경된 경우 재생성
+                chart.destroy();
+                AppState.charts[key] = new Chart(ctx, config);
             }
-            chart.update();
         } else {
             AppState.charts[key] = new Chart(ctx, config);
         }
@@ -1737,11 +1751,10 @@
     function updateMainChart(colors) {
         const ctx = document.getElementById('mainChart').getContext('2d');
         const data = getFilteredData();
-        const showTrend = AppState.el.showTrend.checked;
+        const showTrend = AppState.getEl('showTrend').checked;
         const points = data.map(r => ({ x: r.date, y: r.weight }));
         
         const h = AppState.settings.height / 100;
-        // BMI 기준 상수 사용
         const w185 = CONFIG.BMI.UNDER * h * h;
         const w23 = CONFIG.BMI.NORMAL_END * h * h;
         const w25 = CONFIG.BMI.PRE_OBESE_END * h * h;
@@ -1838,7 +1851,7 @@
             }
         ];
 
-        // 데이터셋 구조 변경 시 안전하게 재생성
+        // 데이터셋 개수 변경 시 안전하게 재생성 (fill 옵션 인덱스 문제 방지)
         if (AppState.charts.main && AppState.charts.main.data.datasets.length !== datasets.length) {
             AppState.charts.main.destroy();
             AppState.charts.main = null;
@@ -1869,7 +1882,7 @@
         updateChartHelper('main', ctx, config);
     }
 
-    // 신규 그래프 1: 고스트 러너 (전월 대비 비교) - 날짜 매핑 오류 및 부동소수점 보정 수정
+    // [Refactor] 고스트 러너 차트: 날짜 매핑 오류 수정 (2월/3월 비교 등)
     function updateGhostRunnerChart(colors) {
         if(AppState.records.length === 0) return;
         const now = new Date();
@@ -1880,10 +1893,10 @@
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
 
-        // 날짜 매핑 로직 개선: 존재하지 않는 날짜는 null 처리 (예: 2월 30일)
+        // 31일 고정 X축에서 해당 월에 존재하지 않는 날짜는 null 처리
         const getMonthData = (m, y) => {
             const daysInMonth = DateUtil.getDaysInMonth(y, m);
-            const data = new Array(31).fill(null); // X축은 항상 1~31일로 고정
+            const data = new Array(31).fill(null);
             
             AppState.records.forEach(r => {
                 const d = DateUtil.parse(r.date);
@@ -1892,7 +1905,7 @@
                 }
             });
 
-            // 해당 월의 말일 이후의 데이터 인덱스는 null 유지 (차트 끊김 표현)
+            // 해당 월의 유효 일자까지만 값 유지 (예: 2월은 28/29일 이후 null)
             return data.map((val, idx) => (idx < daysInMonth ? val : null));
         };
 
@@ -1929,7 +1942,6 @@
         updateChartHelper('ghostRunner', ctx, config);
     }
 
-    // 신규 그래프 2: 신호등 게이지 (BMI & 체지방) - CONFIG 기반 범위 적용
     function updateGaugeCharts(colors) {
         const lastRec = AppState.records[AppState.records.length - 1];
         if(!lastRec) return;
@@ -1989,7 +2001,6 @@
 						ctx.fill();
 						ctx.restore();
 
-						// 숫자 텍스트 표시
 						const fontSize = Math.round(outerRadius * 0.22);
 						ctx.font = `bold ${fontSize}px sans-serif`;
 						ctx.fillStyle = colors.text;
@@ -2002,24 +2013,21 @@
 			updateChartHelper(chartKey, ctx, config);
 		};
 		
-        // BMI 게이지: CONFIG 상수를 활용하여 범위 동적 계산
         const bmiRanges = [
             { size: CONFIG.BMI.UNDER, color: '#90caf9' }, // 저체중
             { size: CONFIG.BMI.NORMAL_END - CONFIG.BMI.UNDER, color: '#a5d6a7' }, // 정상
             { size: CONFIG.BMI.PRE_OBESE_END - CONFIG.BMI.NORMAL_END, color: '#fff59d' }, // 비만 전
             { size: CONFIG.BMI.OBESE_1_END - CONFIG.BMI.PRE_OBESE_END, color: '#ffcc80' }, // 1단계
             { size: CONFIG.BMI.OBESE_2_END - CONFIG.BMI.OBESE_1_END, color: '#ef9a9a' }, // 2단계
-            // 3단계는 나머지 여분으로 처리됨
         ];
         
         createGauge('gaugeBmiChart', bmi, 45, bmiRanges, 'gaugeBmi');
 
-        // 체지방 게이지 (기존 유지)
         createGauge('gaugeFatChart', fat, 50, [
-            { size: 15, color: '#a5d6a7' }, // 운동선수/슬림
-            { size: 10, color: '#fff59d' }, // 일반
-            { size: 10, color: '#ffcc80' }, // 높음
-            { size: 15, color: '#ef9a9a' }  // 매우높음
+            { size: 15, color: '#a5d6a7' }, 
+            { size: 10, color: '#fff59d' }, 
+            { size: 10, color: '#ffcc80' }, 
+            { size: 15, color: '#ef9a9a' }  
         ], 'gaugeFat');
     }
 
@@ -2255,7 +2263,6 @@
         updateChartHelper('bodyComp', ctx, config);
     }
 
-    // 신규 차트: 주간별 체성분 변화 누적 차트
     function updateWeeklyBodyCompChart(colors) {
         const fatRecs = AppState.records.filter(r => r.fat);
         if(fatRecs.length < 2) return;
@@ -2266,7 +2273,6 @@
             const day = d.getDay(), diff = d.getDate() - day + (day == 0 ? -6:1);
             const monday = new Date(d.setDate(diff));
             const key = DateUtil.format(monday);
-            // 해당 주차의 마지막 기록을 사용
             weeks[key] = {
                 lbm: r.weight * (1 - r.fat/100),
                 fat: r.weight * (r.fat/100)
@@ -2302,12 +2308,11 @@
         updateChartHelper('weeklyBodyComp', ctx, config);
     }
     
-    // [NEW] 체중 vs 감량 속도 상관관계 차트
     function updateWeightSpeedScatterChart(colors) {
         if(AppState.records.length < 2) return;
         const data = [];
         for(let i=1; i<AppState.records.length; i++) {
-            const diff = AppState.records[i-1].weight - AppState.records[i].weight; // 감량량이 양수
+            const diff = AppState.records[i-1].weight - AppState.records[i].weight; 
             data.push({ x: AppState.records[i-1].weight, y: diff });
         }
         
@@ -2413,8 +2418,8 @@
 
     // --- 8. 테이블 & 히트맵 & 캘린더 & 뱃지 렌더링 ---
     function renderHeatmap() {
-        const container = AppState.el.heatmapGrid;
-        container.innerHTML = '';
+        const container = AppState.getEl('heatmapGrid');
+        container.innerHTML = ''; // Reflow를 피하기 위해 DocumentFragment 사용 권장이지만 간결성 유지
         if(AppState.records.length === 0) return;
 
         const deltaMap = {};
@@ -2426,11 +2431,13 @@
         const end = new Date();
         const start = new Date(); start.setFullYear(start.getFullYear()-1);
         
+        // [Refactor] DocumentFragment 사용으로 리플로우 최소화
+        const fragment = document.createDocumentFragment();
+        
         for(let d=start; d<=end; d.setDate(d.getDate()+1)) {
             const dateStr = DateUtil.format(d);
             const div = document.createElement('div');
             
-            // CSS 클래스로 스타일 제어
             let levelClass = 'level-0';
             let titleText = dateStr;
 
@@ -2438,17 +2445,19 @@
                 const val = deltaMap[dateStr];
                 titleText += ` (${val>0?'+':''}${val.toFixed(1)}kg)`;
                 
+                // [Refactor] 감량 폭에 따른 색상 단계 세분화 (JS 로직 개선)
                 if(val > 0) levelClass = 'level-gain';
-                else if(val > -0.1) levelClass = 'level-1';
-                else if(val > -0.3) levelClass = 'level-2';
-                else if(val > -0.5) levelClass = 'level-3';
-                else levelClass = 'level-4';
+                else if(val > -0.2) levelClass = 'level-1'; // 미미한 감량
+                else if(val > -0.5) levelClass = 'level-2'; // 보통 감량
+                else if(val > -1.0) levelClass = 'level-3'; // 큰 감량
+                else levelClass = 'level-4'; // 엄청난 감량
             }
             
             div.className = `heatmap-cell ${levelClass}`;
             div.title = titleText;
-            container.appendChild(div);
+            fragment.appendChild(div);
         }
+        container.appendChild(fragment);
     }
 
     function changeCalendarMonth(offset) {
@@ -2465,7 +2474,7 @@
     }
 
     function renderCalendarView() {
-        const container = AppState.el.calendarContainer;
+        const container = AppState.getEl('calendarContainer');
         if(AppState.records.length === 0) {
             container.innerHTML = '<p style="text-align:center;color:var(--text-light);">데이터가 없습니다.</p>';
             return;
@@ -2553,16 +2562,16 @@
             months[key].push(r.weight);
         });
         
-        let html = '';
+        let rows = [];
         Object.keys(months).sort().reverse().forEach(m => {
             const arr = months[m];
             const start = arr[0];
             const end = arr[arr.length-1];
             const diff = MathUtil.diff(end, start);
             const avg = (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1);
-            html += `<tr><td>${DomUtil.escapeHtml(m)}</td><td>${start}</td><td>${end}</td><td class="${diff<=0?'neg':'pos'}">${diff}</td><td>${avg}</td></tr>`;
+            rows.push(`<tr><td>${DomUtil.escapeHtml(m)}</td><td>${start}</td><td>${end}</td><td class="${diff<=0?'neg':'pos'}">${diff}</td><td>${avg}</td></tr>`);
         });
-        AppState.el.monthlyTableBody.innerHTML = html;
+        AppState.getEl('monthlyTableBody').innerHTML = rows.join('');
     }
 
     function renderWeeklyTable() {
@@ -2577,18 +2586,18 @@
             weeks[key].push(r.weight);
         });
 
-        let html = '';
+        let rows = [];
         Object.keys(weeks).sort().reverse().forEach(w => {
             const arr = weeks[w];
             const avg = (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1);
             const diff = MathUtil.diff(arr[arr.length-1], arr[0]);
-            html += `<tr><td>${DomUtil.escapeHtml(w)} 주</td><td>${avg}kg</td><td class="${diff<=0?'neg':'pos'}">${diff}</td></tr>`;
+            rows.push(`<tr><td>${DomUtil.escapeHtml(w)} 주</td><td>${avg}kg</td><td class="${diff<=0?'neg':'pos'}">${diff}</td></tr>`);
         });
-        AppState.el.weeklyTableBody.innerHTML = html;
+        AppState.getEl('weeklyTableBody').innerHTML = rows.join('');
     }
 
     function renderMilestoneTable() {
-        let html = '';
+        let rows = [];
         if(AppState.records.length > 0) {
             let currentInt = Math.floor(AppState.records[0].weight);
             let startDate = DateUtil.parse(AppState.records[0].date);
@@ -2598,17 +2607,17 @@
                 if(w < currentInt) {
                     const nowD = DateUtil.parse(AppState.records[i].date);
                     const days = Math.ceil((nowD - startDate)/(1000*3600*24));
-                    html += `<tr><td>🎉 ${w}kg대 진입</td><td>${DomUtil.escapeHtml(AppState.records[i].date)}</td><td>${days}일 소요</td></tr>`;
+                    rows.push(`<tr><td>🎉 ${w}kg대 진입</td><td>${DomUtil.escapeHtml(AppState.records[i].date)}</td><td>${days}일 소요</td></tr>`);
                     currentInt = w;
                     startDate = nowD;
                 }
             }
         }
-        AppState.el.milestoneTableBody.innerHTML = html || '<tr><td colspan="3">아직 기록된 마일스톤이 없습니다.</td></tr>';
+        AppState.getEl('milestoneTableBody').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3">아직 기록된 마일스톤이 없습니다.</td></tr>';
     }
 
     function renderHistoryTable() {
-        let html = '';
+        let rows = [];
         const rev = [...AppState.records].reverse();
         rev.forEach(r => {
             const idx = AppState.records.findIndex(o => o.date === r.date);
@@ -2620,7 +2629,7 @@
                 cls = d>0?'pos':(d<0?'neg':'');
             }
             const fatStr = r.fat ? r.fat + '%' : '-';
-            html += `<tr>
+            rows.push(`<tr>
                         <td>${DomUtil.escapeHtml(r.date)}</td>
                         <td>${r.weight}kg</td>
                         <td>${DomUtil.escapeHtml(fatStr)}</td>
@@ -2629,9 +2638,9 @@
                             <button data-action="edit" data-date="${r.date}" style="border:none;background:none;cursor:pointer;" title="수정">✏️</button>
                             <button data-action="delete" data-date="${r.date}" style="border:none;background:none;cursor:pointer;" title="삭제">🗑️</button>
                         </td>
-                     </tr>`;
+                     </tr>`);
         });
-        AppState.el.historyList.innerHTML = html;
+        AppState.getEl('historyList').innerHTML = rows.join('');
     }
 
     function renderBadges(s) {
@@ -2660,7 +2669,6 @@
             weightExpert: false,
             plateauDestroyer: false,
             iconOfConstancy: false,
-            // [NEW]
             bigStep: false,
             phoenix: false,
             weekendRuler: false,
@@ -2669,10 +2677,8 @@
         };
 
         if(AppState.records.length > 1) {
-            // Sniper
             if(Math.abs(s.current - AppState.settings.goal1) < 0.01) flags.sniper = true;
 
-            // Roller Coaster
             for(let i=1; i<AppState.records.length; i++) {
                 const diff = Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight));
                 if(diff >= 1.5) {
@@ -2681,7 +2687,6 @@
                 }
             }
 
-            // Equanimity
             if(AppState.records.length >= 7) {
                 for(let i=6; i<AppState.records.length; i++) {
                     const slice = AppState.records.slice(i-6, i+1);
@@ -2691,13 +2696,11 @@
                 }
             }
 
-            // Zombie
             for(let i=1; i<AppState.records.length; i++) {
                 const days = DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date));
                 if(days >= 15) { flags.returnProdigal = true; break; }
             }
 
-            // Holiday Survivor
             const holidays = ['12-25', '01-01', '01-29', '10-06']; 
             holidays.forEach(h => {
                 const year = new Date().getFullYear();
@@ -2712,7 +2715,6 @@
                 }
             });
 
-            // Weekend Defense
             for(let i=0; i<AppState.records.length-1; i++) {
                 const d1 = DateUtil.parse(AppState.records[i].date);
                 if(d1.getDay() === 6) { 
@@ -2723,7 +2725,6 @@
                 }
             }
             
-            // Plateau Break
             let stableDays = 0;
             for(let i=1; i<AppState.records.length; i++) {
                 if(Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight)) < 0.2) stableDays++;
@@ -2733,7 +2734,6 @@
                 }
             }
 
-            // BMI Break
             const h = AppState.settings.height / 100;
             const bmiStart = AppState.settings.startWeight / (h*h);
             const bmiCurr = s.current / (h*h);
@@ -2747,32 +2747,27 @@
             };
             if(getCat(bmiStart) !== getCat(bmiCurr)) flags.bmiBreak = true;
 
-            // Yoyo Prevention
             if(s.current <= AppState.settings.goal1) {
                 const recent = AppState.records.slice(-10);
                 if(recent.length >= 10 && recent.every(r => Math.abs(r.weight - AppState.settings.goal1) <= 0.5)) flags.yoyoPrev = true;
             }
 
-            // Ottogi
             for(let i=0; i<AppState.records.length-3; i++) {
                 if(MathUtil.diff(AppState.records[i+1].weight, AppState.records[i].weight) >= 0.5) {
                     if(AppState.records[i+3].weight <= AppState.records[i].weight) flags.ottogi = true;
                 }
             }
 
-            // Golden Cross
             if(AppState.records.length > 30) {
                 const last7 = AppState.records.slice(-7).reduce((a,b)=>a+b.weight,0)/7;
                 const last30 = AppState.records.slice(-30).reduce((a,b)=>a+b.weight,0)/30;
                 if(last7 < last30 - 0.5) flags.goldenCross = true;
             }
 
-            // Fat Destroyer
             if(s.lastRec && s.lastRec.fat && s.lastRec.fat < 25) { 
                 flags.fatDestroyer = true;
             }
 
-            // Plateau Master
             stableDays = 0;
             for(let i=1; i<AppState.records.length; i++) {
                 if(Math.abs(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight)) < 0.2) stableDays++;
@@ -2782,13 +2777,10 @@
                 }
             }
 
-            // Record Master
             if(streak >= 90) flags.recordMaster = true;
 
-            // Reborn
             if(s.max - s.current >= 10) flags.reborn = true;
 
-            // Slow & Steady
             if(AppState.records.length >= 90) {
                 const threeMonthsAgo = new Date(); threeMonthsAgo.setMonth(threeMonthsAgo.getMonth()-3);
                 const recs = AppState.records.filter(r => DateUtil.parse(r.date) >= threeMonthsAgo);
@@ -2799,20 +2791,16 @@
                 }
             }
 
-            // Weight Expert
             if(AppState.records.length >= 30) {
                 const oneMonthAgo = new Date(); oneMonthAgo.setMonth(oneMonthAgo.getMonth()-1);
                 const rec = AppState.records.find(r => DateUtil.parse(r.date) >= oneMonthAgo);
                 if(rec && (rec.weight - s.current >= 4)) flags.weightExpert = true;
             }
 
-            // Plateau Destroyer
             if(s.maxPlateau >= 14 && s.current < s.lastRec.weight) flags.plateauDestroyer = true;
 
-            // Icon of Constancy
             if(streak >= 180) flags.iconOfConstancy = true;
 
-            // [NEW] Big Step (하루 1kg 이상 감량)
             for(let i=1; i<AppState.records.length; i++) {
                 const days = DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date));
                 if(days === 1 && AppState.records[i-1].weight - AppState.records[i].weight >= 1.0) {
@@ -2820,9 +2808,6 @@
                 }
             }
 
-            // [NEW] Phoenix (불사조)
-            // 논리: 과거에 최소 체중 기록 -> 이후 목표 체중(Goal) 근처 or 도달 했다가 다시 증량(요요) -> 그 후 다시 내려가서 최저 경신
-            // 단순화: 과거에 한번 최저점 찍고 -> 3kg 이상 올랐다가 -> 현재 다시 최저점 경신
             let localMin = 999;
             let rebound = false;
             for(let i=0; i<AppState.records.length-1; i++) {
@@ -2831,7 +2816,6 @@
             }
             if(rebound && s.current < localMin) flags.phoenix = true;
 
-            // [NEW] Weekend Ruler (주말 지배자)
             for(let i=0; i<AppState.records.length; i++) {
                 const d = DateUtil.parse(AppState.records[i].date);
                 if(d.getDay() === 1) { // Monday
@@ -2844,13 +2828,11 @@
                 }
             }
 
-            // [NEW] Curiosity (궁금증 해결사)
             let noFatStreak = 0;
             for(let i=0; i<AppState.records.length; i++) {
                 if(!AppState.records[i].fat) noFatStreak++;
                 else {
-                    if(noFatStreak >= 10) { // 이전에 10일 이상 안 쟀음
-                        // 이후 10일 연속 쟀는지 확인
+                    if(noFatStreak >= 10) { 
                         let recordedStreak = 0;
                         for(let j=i; j<Math.min(i+10, AppState.records.length); j++) {
                             if(AppState.records[j].fat) recordedStreak++;
@@ -2862,14 +2844,12 @@
                 }
             }
 
-            // [NEW] Time Traveler (시공간 초월)
-            // 단순 비교: 최근 14일 속도로 계산한 남은 일수가 전체 평균 속도로 계산한 것보다 10일 이상 적을 때
             const rem = s.current - AppState.settings.goal1;
             if(rem > 0 && AppState.records.length > 30) {
                 const totalDays = DateUtil.daysBetween(DateUtil.parse(AppState.records[0].date), DateUtil.parse(s.lastRec.date));
                 const totalSpeed = (AppState.records[0].weight - s.current) / totalDays;
                 
-                const recentRec = AppState.records[AppState.records.length-15]; // 14 days ago approx
+                const recentRec = AppState.records[AppState.records.length-15]; 
                 if(recentRec) {
                     const recentDays = DateUtil.daysBetween(DateUtil.parse(recentRec.date), DateUtil.parse(s.lastRec.date));
                     const recentSpeed = (recentRec.weight - s.current) / recentDays;
@@ -2883,7 +2863,6 @@
             }
         }
 
-        // 뱃지 상태 매핑
         const badgeConditions = {
             start: AppState.records.length >= 1,
             holiday: flags.holidaySurvivor,
@@ -2913,7 +2892,6 @@
             weightExpert: flags.weightExpert,
             plateauDestroyer: flags.plateauDestroyer,
             iconOfConstancy: flags.iconOfConstancy,
-            // [NEW]
             bigStep: flags.bigStep,
             phoenix: flags.phoenix,
             weekendRuler: flags.weekendRuler,
@@ -2921,32 +2899,32 @@
             timeTraveler: flags.timeTraveler
         };
 
-        let html = '';
+        let rows = [];
         CONFIG.BADGES.forEach(b => {
             const isUnlocked = badgeConditions[b.id];
             const cls = isUnlocked ? 'badge-item unlocked' : 'badge-item';
-            html += `<div class="${cls}" title="${b.desc} (${isUnlocked ? '획득 완료' : '미획득'})">
+            rows.push(`<div class="${cls}" title="${b.desc} (${isUnlocked ? '획득 완료' : '미획득'})">
                 <span class="badge-icon">${b.icon}</span>
                 <span class="badge-name">${b.name}</span>
-            </div>`;
+            </div>`);
         });
-        AppState.el.badgeGrid.innerHTML = html;
+        AppState.getEl('badgeGrid').innerHTML = rows.join('');
     }
 
     function switchTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-        AppState.el[tabId].style.display = 'block';
+        AppState.getEl(tabId).style.display = 'block';
         
         document.querySelectorAll('.filter-group button[id^="tab-btn"]').forEach(b => b.classList.remove('active'));
-        if(tabId.includes('monthly')) AppState.el['tab-btn-monthly'].classList.add('active');
-        if(tabId.includes('weekly')) AppState.el['tab-btn-weekly'].classList.add('active');
-        if(tabId.includes('milestone')) AppState.el['tab-btn-milestone'].classList.add('active');
-        if(tabId.includes('history')) AppState.el['tab-btn-history'].classList.add('active');
+        if(tabId.includes('monthly')) AppState.getEl('tab-btn-monthly').classList.add('active');
+        if(tabId.includes('weekly')) AppState.getEl('tab-btn-weekly').classList.add('active');
+        if(tabId.includes('milestone')) AppState.getEl('tab-btn-milestone').classList.add('active');
+        if(tabId.includes('history')) AppState.getEl('tab-btn-history').classList.add('active');
     }
 
     function toggleChartExpand(btn) {
         const card = btn.closest('.card');
-        const backdrop = document.getElementById('chartBackdrop');
+        const backdrop = AppState.getEl('chartBackdrop');
         const isExpanded = card.classList.contains('expanded-card');
 
         if (!isExpanded) {
@@ -2978,7 +2956,7 @@
 
     function closeAllExpands() {
         const expandedCards = document.querySelectorAll('.expanded-card');
-        const backdrop = document.getElementById('chartBackdrop');
+        const backdrop = AppState.getEl('chartBackdrop');
         
         expandedCards.forEach(card => {
             card.classList.remove('expanded-card');
@@ -3003,7 +2981,7 @@
         }, 50);
     }
 
-    // 전역 스코프 오염 방지 및 모듈 패턴 유지
+    // 전역 스코프에 API 노출 (모듈 패턴)
     window.App = {
         init,
         toggleDarkMode,
