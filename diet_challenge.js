@@ -69,12 +69,18 @@
             { id: 'weightExpert', name: '체중 변화 전문가', icon: '🎓', desc: '1개월간 4kg 이상 감량했습니다.' },
             { id: 'plateauDestroyer', name: '정체기 파괴자', icon: '🔨', desc: '2주 이상의 정체기를 극복했습니다.' },
             { id: 'iconOfConstancy', name: '꾸준함의 아이콘', icon: '🗿', desc: '6개월 이상 연속 기록을 유지했습니다.' },
-            // --- [NEW] 새로운 업적 ---
             { id: 'bigStep', name: '빅 스텝', icon: '👣', desc: '하루 만에 1.0kg 이상 감량했습니다.' },
             { id: 'phoenix', name: '불사조', icon: '🐦‍🔥', desc: '요요(증량) 후 다시 심기일전하여 최저 체중을 경신했습니다.' },
             { id: 'weekendRuler', name: '주말의 지배자', icon: '🧛', desc: '금요일 아침보다 월요일 아침 체중이 같거나 낮았습니다.' },
             { id: 'curiosity', name: '궁금증 해결사', icon: '🕵️', desc: '체지방률을 안 재다가 10일 연속으로 꼼꼼히 기록했습니다.' },
-            { id: 'timeTraveler', name: '시공간 초월', icon: '🚀', desc: '예상 완료일을 10일 이상 앞당겼습니다.' }
+            { id: 'timeTraveler', name: '시공간 초월', icon: '🚀', desc: '예상 완료일을 10일 이상 앞당겼습니다.' },
+            // --- [NEW] 새로운 업적 ---
+            { id: 'parking', name: '주차의 달인', icon: '🅿️', desc: '14일 동안 체중 변동 폭이 ±0.3kg 이내로 유지되었습니다.' },
+            { id: 'whoosh', name: '후루룩', icon: '📉', desc: '정체기 직후 하루 만에 0.8kg 이상 감량되었습니다.' },
+            { id: 'fullMoon', name: '보름달', icon: '🌕', desc: '한 달(30일) 동안 하루도 빠짐없이 기록했습니다.' },
+            { id: 'lucky7', name: '럭키 세븐', icon: '🎰', desc: '체중의 소수점 자리가 .7 또는 .77로 끝납니다.' },
+            { id: 'ironWall', name: '철벽 방어', icon: '🧱', desc: '최고 체중 직전에서 다시 감량했습니다.' },
+            { id: 'seasonality', name: '시즌 플레이어', icon: '🗓️', desc: '4계절(3, 6, 9, 12월)에 모두 기록이 존재합니다.' }
         ]
     };
 
@@ -188,7 +194,7 @@
             main: null, dow: null, hist: null, cumul: null, monthly: null, fat: null, scatter: null, 
             weekend: null, bodyComp: null, boxPlot: null, roc: null, ghostRunner: null, 
             gaugeBmi: null, gaugeFat: null, weeklyBodyComp: null,
-            weightSpeedScatter: null
+            weightSpeedScatter: null, waterfall: null, seasonality: null, bellCurve: null
         },
         // [Refactor] DOM Cache (lazy load)
         _elCache: {},
@@ -222,15 +228,15 @@
             'maDisparityDisplay', 'weightClassDisplay', 'recoveryScoreDisplay', 
             'plateauHelperText', 'yoyoRiskDisplay', 'recent3DayAvgDisplay', 'weeklySpeedDisplay', 'idealWeeklyRateDisplay',
             'bodyCompBalanceDisplay', 'lossConsistencyDisplay', 'calEfficiencyDisplay', 'volatilityIndexDisplay', 'bodyCompTrendDisplay',
-            'metabolicAgeDisplay', 'dietCostDisplay', 'weekendImpactDisplay', 
-            'dailyWinRateTable', 'zoneDurationTable', 'streakDetailTable', 'bestWorstMonthTable',
+            'metabolicAgeDisplay', 'dietCostDisplay', 'weekendImpactDisplay', 'muscleLossCard', 'muscleLossDisplay',
+            'dailyWinRateTable', 'zoneDurationTable', 'streakDetailTable', 'bestWorstMonthTable', 'zoneReportTableBody', 'sprintTableBody', 'gradesTableBody',
             'advancedAnalysisList', 'calendarContainer', 'periodCompareTable', 'detailedStatsTable',
             'progressBarFill', 'progressEmoji', 'progressText', 'labelStart', 'labelGoal',
             'bmiProgressBarFill', 'bmiProgressEmoji', 'bmiProgressText', 'bmiLabelLeft', 'bmiLabelRight',
             'rate7Days', 'rate30Days', 'weeklyCompareDisplay', 'heatmapGrid', 'chartBackdrop',
             'monthlyTableBody', 'weeklyTableBody', 'milestoneTableBody', 'historyList',
-            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 
-            'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'recordBtn'
+            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 'tab-zone', 'tab-sprint', 'tab-grades',
+            'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'tab-btn-zone', 'tab-btn-sprint', 'tab-btn-grades', 'recordBtn'
         ];
         // 캐싱 선작업 (선택적)
         ids.forEach(id => AppState.getEl(id));
@@ -591,6 +597,7 @@
         renderPeriodComparison(); 
         renderDetailedStats(s); 
         renderExtendedStats(); 
+        renderNewTables(); 
         
         // 차트 업데이트 (재사용 및 업데이트 방식 개선)
         const colors = DomUtil.getChartColors();
@@ -610,6 +617,9 @@
         updateGaugeCharts(colors);
         updateWeeklyBodyCompChart(colors); 
         updateWeightSpeedScatterChart(colors); 
+        updateWaterfallChart(colors);
+        updateSeasonalityChart(colors);
+        updateBellCurveChart(colors);
 
         renderHeatmap();
         renderCalendarView(); 
@@ -986,6 +996,19 @@
              
              const trendEl = AppState.getEl('bodyCompTrendDisplay');
              if(trendEl) trendEl.innerText = `근육 ${leanLoss > 0 ? '-' : '+'}${Math.abs(leanLoss).toFixed(1)}kg`;
+             
+             // [NEW] 근손실 경고등 Logic
+             const mlCard = AppState.getEl('muscleLossCard');
+             const mlDisplay = AppState.getEl('muscleLossDisplay');
+             if(mlCard) {
+                 if (leanLoss > 0 && totalLoss > 2 && (leanLoss / totalLoss) > 0.4) {
+                     mlCard.style.display = 'block';
+                     mlDisplay.innerText = `${((leanLoss/totalLoss)*100).toFixed(0)}% 근손실`;
+                     DomUtil.setTextColor(mlDisplay, 'danger');
+                 } else {
+                     mlCard.style.display = 'none';
+                 }
+             }
         } else {
              AppState.getEl('netChangeDisplay').innerText = '-';
              AppState.getEl('netChangeSubDisplay').innerText = '체지방 데이터 필요';
@@ -993,6 +1016,8 @@
              if(balEl) balEl.innerText = '-';
              const trendEl = AppState.getEl('bodyCompTrendDisplay');
              if(trendEl) trendEl.innerText = '-';
+             const mlCard = AppState.getEl('muscleLossCard');
+             if(mlCard) mlCard.style.display = 'none';
         }
 
         const now = new Date();
@@ -1049,6 +1074,48 @@
 
         // [Refactor] 배열 기반으로 HTML 문자열 조합 (리플로우 최소화)
         let htmlLines = [];
+
+        // [NEW] 다이어트 성향 분석 (MBTI 스타일)
+        const stdDev = s.stdDev || 0;
+        let persona = "";
+        if(stdDev > 0.8) persona = "🎢 롤러코스터형 (변동이 큽니다)";
+        else if(stdDev < 0.3) persona = "🐢 꾸준한 거북이형 (안정적입니다)";
+        else persona = "🏃 밸런스형 (적당한 변동)";
+        
+        let weekendSpike = 0;
+        for(let i=1; i<AppState.records.length; i++) {
+             const d = DateUtil.parse(AppState.records[i].date).getDay();
+             if(d === 1 && AppState.records[i].weight > AppState.records[i-1].weight + 0.5) weekendSpike++;
+        }
+        if(weekendSpike >= 3) persona = "🍻 주말 폭식형 (월요일 급증 주의)";
+        
+        htmlLines.push(`<li class="insight-item"><span class="insight-label">🕵️ 다이어트 성향:</span> 당신은 <strong>${persona}</strong>입니다.</li>`);
+
+        // [NEW] 수분 마스킹 탐지
+        if(AppState.records.length >= 3) {
+            const last = AppState.records[AppState.records.length-1];
+            const prev = AppState.records[AppState.records.length-2];
+            if(last.fat && prev.fat && last.fat < prev.fat && last.weight >= prev.weight) {
+                htmlLines.push(`<li class="insight-item"><span class="insight-label">💧 수분 마스킹:</span> "체지방은 줄었는데 체중이 그대로입니다. 수분 보유량이 늘어난 것 같습니다. 짠 음식을 드셨나요?"</li>`);
+            }
+        }
+
+        // [NEW] 골든/데드 크로스
+        if(AppState.records.length >= 30) {
+            const last7 = AppState.records.slice(-7).reduce((a,b)=>a+b.weight,0)/7;
+            const last30 = AppState.records.slice(-30).reduce((a,b)=>a+b.weight,0)/30;
+            const prevRecs = AppState.records.slice(0, AppState.records.length-1);
+            if(prevRecs.length >= 30) {
+                const prev7 = prevRecs.slice(-7).reduce((a,b)=>a+b.weight,0)/7;
+                const prev30 = prevRecs.slice(-30).reduce((a,b)=>a+b.weight,0)/30;
+                
+                if(prev7 >= prev30 && last7 < last30) {
+                    htmlLines.push(`<li class="insight-item text-primary"><span class="insight-label">📉 골든 크로스:</span> 단기 이동평균이 장기 이동평균을 뚫고 내려갔습니다! 본격적인 하락 추세 시작입니다.</li>`);
+                } else if (prev7 <= prev30 && last7 > last30) {
+                    htmlLines.push(`<li class="insight-item text-danger"><span class="insight-label">📈 데드 크로스:</span> 단기 이동평균이 장기 이동평균을 뚫고 올라갔습니다! 상승 추세 전환을 주의하세요.</li>`);
+                }
+            }
+        }
 
         const dayDeltas = [0,0,0,0,0,0,0]; 
         const dayCounts = [0,0,0,0,0,0,0];
@@ -2416,6 +2483,114 @@
         updateChartHelper('roc', ctx, config);
     }
 
+    // [NEW] Waterfall Chart (체중 흐름)
+    function updateWaterfallChart(colors) {
+        if(AppState.records.length < 2) return;
+        const startW = AppState.records[0].weight;
+        const currentW = AppState.records[AppState.records.length - 1].weight;
+        const diff = currentW - startW;
+
+        const data = [
+            [0, startW],
+            [startW, startW + diff],
+            [0, currentW]
+        ];
+
+        const bgColors = [colors.secondary, diff < 0 ? colors.primary : colors.danger, colors.text];
+
+        const ctx = document.getElementById('waterfallChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: ['시작 체중', '변화량', '현재 체중'],
+            datasets: [{
+                label: '체중 흐름',
+                data: data,
+                backgroundColor: bgColors,
+                borderWidth: 0
+            }]
+        }, {
+            plugins: { legend: { display: false } },
+            scales: { x: { grid: { display: false } } }
+        }, colors);
+
+        updateChartHelper('waterfall', ctx, config);
+    }
+
+    // [NEW] Seasonality Chart (YoY)
+    function updateSeasonalityChart(colors) {
+        if(AppState.records.length === 0) return;
+        
+        const years = {};
+        AppState.records.forEach(r => {
+            const d = DateUtil.parse(r.date);
+            const y = d.getFullYear();
+            if(!years[y]) years[y] = [];
+            // Normalize year to 2000 for overlay
+            const normalizedDate = new Date(2000, d.getMonth(), d.getDate());
+            years[y].push({ x: normalizedDate, y: r.weight });
+        });
+
+        const datasets = Object.keys(years).map((y, idx) => {
+            const colorList = [colors.primary, colors.secondary, colors.accent, colors.danger];
+            return {
+                label: y + '년',
+                data: years[y],
+                borderColor: colorList[idx % colorList.length],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 1
+            };
+        });
+
+        const ctx = document.getElementById('seasonalityChart').getContext('2d');
+        const config = createChartConfig('line', {
+            datasets: datasets
+        }, {
+            scales: {
+                x: { 
+                    type: 'time', 
+                    time: { unit: 'month', displayFormats: { month: 'MMM' } } 
+                }
+            }
+        }, colors);
+
+        updateChartHelper('seasonality', ctx, config);
+    }
+
+    // [NEW] Bell Curve Chart
+    function updateBellCurveChart(colors) {
+        if(AppState.records.length < 2) return;
+        const deltas = [];
+        for(let i=1; i<AppState.records.length; i++) {
+            deltas.push(MathUtil.diff(AppState.records[i].weight, AppState.records[i-1].weight));
+        }
+
+        const buckets = {};
+        deltas.forEach(d => {
+            const bucket = Math.round(d * 10) / 10;
+            if(!buckets[bucket]) buckets[bucket] = 0;
+            buckets[bucket]++;
+        });
+
+        const labels = Object.keys(buckets).sort((a,b)=>parseFloat(a)-parseFloat(b));
+        const data = labels.map(l => buckets[l]);
+
+        const ctx = document.getElementById('bellCurveChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: labels,
+            datasets: [{
+                label: '빈도수',
+                data: data,
+                backgroundColor: colors.secondary,
+                borderRadius: 4
+            }]
+        }, {
+            scales: { x: { title: { display: true, text: '일일 변동량 (kg)' } } },
+            plugins: { legend: { display: false } }
+        }, colors);
+
+        updateChartHelper('bellCurve', ctx, config);
+    }
+
     // --- 8. 테이블 & 히트맵 & 캘린더 & 뱃지 렌더링 ---
     function renderHeatmap() {
         const container = AppState.getEl('heatmapGrid');
@@ -2554,6 +2729,73 @@
         renderHistoryTable();
     }
 
+    function renderNewTables() {
+        if(AppState.records.length < 2) return;
+
+        // Zone Duration Report
+        const zones = {};
+        for(let i=1; i<AppState.records.length; i++) {
+            const z = Math.floor(AppState.records[i].weight / 10) * 10;
+            const key = z;
+            if(!zones[key]) zones[key] = { days: 0, startDate: AppState.records[i].date, endDate: AppState.records[i].date };
+            zones[key].days++;
+            if(AppState.records[i].date > zones[key].endDate) zones[key].endDate = AppState.records[i].date;
+        }
+        let zRows = [];
+        Object.keys(zones).sort().reverse().forEach(z => {
+            const d = zones[z];
+            const escapeTime = DateUtil.daysBetween(DateUtil.parse(d.startDate), DateUtil.parse(d.endDate));
+            zRows.push(`<tr><td>${z}kg대</td><td>${d.days}일</td><td>${escapeTime}일</td></tr>`);
+        });
+        AppState.getEl('zoneReportTableBody').innerHTML = zRows.join('');
+
+        // Sprint Ranking
+        const sprints = [];
+        for(let i=0; i<AppState.records.length; i++) {
+            const startW = AppState.records[i].weight;
+            for(let j=i+1; j<Math.min(i+30, AppState.records.length); j++) {
+                if(startW - AppState.records[j].weight >= 1.0) {
+                    const days = DateUtil.daysBetween(DateUtil.parse(AppState.records[i].date), DateUtil.parse(AppState.records[j].date));
+                    sprints.push({ days, start: AppState.records[i].date, end: AppState.records[j].date, loss: startW - AppState.records[j].weight });
+                    break; 
+                }
+            }
+        }
+        sprints.sort((a,b) => a.days - b.days);
+        const top5 = sprints.slice(0, 5);
+        let sRows = top5.map((s, i) => `<tr><td>${i+1}위</td><td>${s.loss.toFixed(1)}kg</td><td>${s.days}일</td><td>${s.start}~${s.end}</td></tr>`);
+        AppState.getEl('sprintTableBody').innerHTML = sRows.length ? sRows.join('') : '<tr><td colspan="4">데이터 부족</td></tr>';
+
+        // Day/Month Grades
+        const dayWin = [0,0,0,0,0,0,0], dayTot = [0,0,0,0,0,0,0];
+        const dayLoss = [0,0,0,0,0,0,0];
+        const dayNames = ['일','월','화','수','목','금','토'];
+        
+        for(let i=1; i<AppState.records.length; i++) {
+            const d = DateUtil.parse(AppState.records[i].date).getDay();
+            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            dayTot[d]++;
+            dayLoss[d] += diff;
+            if(diff < 0) dayWin[d]++;
+        }
+        
+        let gRows = [];
+        dayNames.forEach((n, i) => {
+            if(dayTot[i] > 0) {
+                const avg = dayLoss[i] / dayTot[i];
+                const win = (dayWin[i] / dayTot[i] * 100).toFixed(0);
+                let grade = 'C';
+                if(avg < -0.2 && win > 60) grade = 'A';
+                else if(avg < 0) grade = 'B';
+                else if(avg > 0.2) grade = 'D';
+                else if(avg > 0.5) grade = 'F';
+                
+                gRows.push(`<tr><td>${n}요일</td><td>${avg.toFixed(2)}</td><td>${win}%</td><td>${grade}</td></tr>`);
+            }
+        });
+        AppState.getEl('gradesTableBody').innerHTML = gRows.join('');
+    }
+
     function renderMonthlyTable() {
         const months = {};
         AppState.records.forEach(r => {
@@ -2673,7 +2915,13 @@
             phoenix: false,
             weekendRuler: false,
             curiosity: false,
-            timeTraveler: false
+            timeTraveler: false,
+            parking: false,
+            whoosh: false,
+            fullMoon: false,
+            lucky7: false,
+            ironWall: false,
+            seasonality: false
         };
 
         if(AppState.records.length > 1) {
@@ -2861,6 +3109,49 @@
                     }
                 }
             }
+
+            // [NEW] Badge Logic
+            if(AppState.records.length >= 14) {
+                 const recs14 = AppState.records.slice(-14);
+                 const w14 = recs14.map(r => r.weight);
+                 if(Math.max(...w14) - Math.min(...w14) <= 0.6) flags.parking = true;
+            }
+
+            let plat = 0;
+            for(let i=1; i<AppState.records.length; i++) {
+                if(Math.abs(AppState.records[i].weight - AppState.records[i-1].weight) < 0.2) plat++;
+                else {
+                    if(plat >= 3 && AppState.records[i-1].weight - AppState.records[i].weight >= 0.8) flags.whoosh = true;
+                    plat = 0;
+                }
+            }
+
+            let consec = 0;
+            for(let i=1; i<AppState.records.length; i++) {
+                if(DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date)) === 1) consec++;
+                else consec = 0;
+                if(consec >= 30) flags.fullMoon = true;
+            }
+
+            if(s.current.toString().endsWith('.7') || s.current.toString().endsWith('.77')) flags.lucky7 = true;
+
+            if(s.max - s.current >= 0.5) { // Assuming decreased
+                for(let i=1; i<AppState.records.length; i++) {
+                     if(Math.abs(AppState.records[i].weight - s.max) < 0.5 && AppState.records[i].weight > AppState.records[i+1].weight) {
+                         flags.ironWall = true; break;
+                     }
+                }
+            }
+
+            const seasons = new Set();
+            AppState.records.forEach(r => {
+                const m = DateUtil.parse(r.date).getMonth() + 1;
+                if(m===3) seasons.add('Spring');
+                if(m===6) seasons.add('Summer');
+                if(m===9) seasons.add('Autumn');
+                if(m===12) seasons.add('Winter');
+            });
+            if(seasons.size === 4) flags.seasonality = true;
         }
 
         const badgeConditions = {
@@ -2896,7 +3187,13 @@
             phoenix: flags.phoenix,
             weekendRuler: flags.weekendRuler,
             curiosity: flags.curiosity,
-            timeTraveler: flags.timeTraveler
+            timeTraveler: flags.timeTraveler,
+            parking: flags.parking,
+            whoosh: flags.whoosh,
+            fullMoon: flags.fullMoon,
+            lucky7: flags.lucky7,
+            ironWall: flags.ironWall,
+            seasonality: flags.seasonality
         };
 
         let rows = [];
@@ -2920,6 +3217,9 @@
         if(tabId.includes('weekly')) AppState.getEl('tab-btn-weekly').classList.add('active');
         if(tabId.includes('milestone')) AppState.getEl('tab-btn-milestone').classList.add('active');
         if(tabId.includes('history')) AppState.getEl('tab-btn-history').classList.add('active');
+        if(tabId.includes('zone')) AppState.getEl('tab-btn-zone').classList.add('active');
+        if(tabId.includes('sprint')) AppState.getEl('tab-btn-sprint').classList.add('active');
+        if(tabId.includes('grades')) AppState.getEl('tab-btn-grades').classList.add('active');
     }
 
     function toggleChartExpand(btn) {

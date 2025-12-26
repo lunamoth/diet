@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 2026 (Ver 3.0.51)</title>
+    <title>💪 다이어트 챌린지 2026 (Ver 3.0.52)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -683,6 +683,13 @@
             <div class="stat-label">주말 여파 지수</div>
             <div class="stat-sub">(월 - 금 차이 평균)</div>
         </div>
+        <!-- [NEW] 근손실 경고등 지표 추가 -->
+        <div class="stat-card" id="muscleLossCard" style="display:none;">
+            <span class="stat-icon">🍖</span>
+            <div class="stat-value" id="muscleLossDisplay">-</div>
+            <div class="stat-label">근손실 경고등</div>
+            <div class="stat-sub" style="font-size:0.65rem;">(주의 필요)</div>
+        </div>
     </div>
     
     <!-- 메인 차트 영역 -->
@@ -803,6 +810,32 @@
                 <canvas id="weightSpeedScatterChart"></canvas>
             </div>
             <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">체중대별 감량 속도 분포 (무거울수록 잘 빠질까요?)</p>
+        </div>
+
+        <!-- [NEW] 체중 흐름 (Waterfall/Flow) -->
+        <div class="card">
+            <h3>🌊 체중 구성 흐름 (Waterfall) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="waterfallChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">시작 체중에서 현재 체중까지의 변화 요소 분해</p>
+        </div>
+
+        <!-- [NEW] 시즌별 겹쳐보기 (YoY) -->
+        <div class="card">
+            <h3>📉 시즌별 겹쳐보기 (Year over Year) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="seasonalityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- [NEW] 정규 분포 곡선 -->
+        <div class="card">
+            <h3>🔔 체중 변화 분포 (Daily Change Distribution) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="bellCurveChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">일일 체중 변동량(g) 분포도</p>
         </div>
     </div>
 
@@ -938,6 +971,10 @@
                 <button class="filter-btn" id="tab-btn-weekly" onclick="App.switchTab('tab-weekly')">주별 결산</button>
                 <button class="filter-btn" id="tab-btn-milestone" onclick="App.switchTab('tab-milestone')">마일스톤</button>
                 <button class="filter-btn" id="tab-btn-history" onclick="App.switchTab('tab-history')">전체 기록</button>
+                <!-- [NEW] 새로운 탭 버튼 -->
+                <button class="filter-btn" id="tab-btn-zone" onclick="App.switchTab('tab-zone')">구간별 체류</button>
+                <button class="filter-btn" id="tab-btn-sprint" onclick="App.switchTab('tab-sprint')">스프린트</button>
+                <button class="filter-btn" id="tab-btn-grades" onclick="App.switchTab('tab-grades')">성적표</button>
             </div>
         </div>
 
@@ -965,6 +1002,25 @@
             <table class="data-table">
                 <thead><tr><th>날짜</th><th>체중</th><th>체지방</th><th>변화</th><th>관리</th></tr></thead>
                 <tbody id="historyList"></tbody>
+            </table>
+        </div>
+        <!-- [NEW] 새로운 탭 컨텐츠 -->
+        <div id="tab-zone" class="tab-content" style="display:none;">
+            <table class="data-table">
+                <thead><tr><th>구간 (kg대)</th><th>체류 기간 (일)</th><th>탈출 소요</th></tr></thead>
+                <tbody id="zoneReportTableBody"><tr><td colspan="3">분석 중...</td></tr></tbody>
+            </table>
+        </div>
+        <div id="tab-sprint" class="tab-content" style="display:none;">
+            <table class="data-table">
+                <thead><tr><th>순위</th><th>감량 폭 (1kg 기준)</th><th>소요 기간</th><th>일자</th></tr></thead>
+                <tbody id="sprintTableBody"><tr><td colspan="4">분석 중...</td></tr></tbody>
+            </table>
+        </div>
+        <div id="tab-grades" class="tab-content" style="display:none;">
+             <table class="data-table">
+                <thead><tr><th>구분</th><th>평균 감량 (kg)</th><th>승률 (성공%)</th><th>등급</th></tr></thead>
+                <tbody id="gradesTableBody"><tr><td colspan="4">분석 중...</td></tr></tbody>
             </table>
         </div>
     </div>
