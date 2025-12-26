@@ -215,9 +215,10 @@
     // --- 2. 초기화 ---
     function init() {
         // DOM 요소 캐싱 리스트 (필요 시 getEl로 접근)
+        // [Modified] csvFileInput 제거, jsonFileInput, csvImportInput 추가
         const ids = [
             'dateInput', 'weightInput', 'fatInput', 'userHeight', 'startWeight', 'goal1Weight', 'dailyIntake',
-            'settingsPanel', 'badgeGrid', 'csvFileInput', 'resetConfirmInput', 'recordInputGroup',
+            'settingsPanel', 'badgeGrid', 'jsonFileInput', 'csvImportInput', 'resetConfirmInput', 'recordInputGroup',
             'chartStartDate', 'chartEndDate', 'showTrend',
             'currentWeightDisplay', 'totalLostDisplay', 'percentLostDisplay', 'progressPercent',
             'remainingWeightDisplay', 'remainingPercentDisplay', 'bmiDisplay', 'predictedDate',
@@ -486,34 +487,42 @@
         }
     }
 
-    function importData() {
-        const file = AppState.getEl('csvFileInput').files[0];
-        if (!file) return showToast('파일을 선택해주세요.');
+    // [New] JSON 전용 백업/복원
+    function importJSON() {
+        const file = AppState.getEl('jsonFileInput').files[0];
+        if (!file) return showToast('JSON 파일을 선택해주세요.');
         
         const reader = new FileReader();
         reader.onload = function(e) {
             const content = e.target.result.trim().replace(/^\uFEFF/, '');
-            
-            if(file.name.endsWith('.json')) {
-                try {
-                    const data = JSON.parse(content);
-                    if(data.records && Array.isArray(data.records)) {
-                        AppState.records = data.records.filter(r => r.date && !isNaN(r.weight));
-                        if(data.settings) AppState.settings = data.settings;
-                        AppState.state.isDirty = true;
-                        debouncedSaveRecords();
-                        debouncedSaveSettings();
-                        updateUI();
-                        showToast('데이터 복원 완료');
-                    } else {
-                        throw new Error('올바르지 않은 JSON 형식');
-                    }
-                } catch(err) {
-                    showToast('JSON 파일 오류: ' + err.message);
+            try {
+                const data = JSON.parse(content);
+                if(data.records && Array.isArray(data.records)) {
+                    AppState.records = data.records.filter(r => r.date && !isNaN(r.weight));
+                    if(data.settings) AppState.settings = data.settings;
+                    AppState.state.isDirty = true;
+                    debouncedSaveRecords();
+                    debouncedSaveSettings();
+                    updateUI();
+                    showToast('데이터(JSON) 복원 완료');
+                } else {
+                    throw new Error('올바르지 않은 JSON 형식');
                 }
-                return;
+            } catch(err) {
+                showToast('JSON 파일 오류: ' + err.message);
             }
+        };
+        reader.readAsText(file);
+    }
 
+    // [New] WeightDrop CSV 전용 복원
+    function importCSV() {
+        const file = AppState.getEl('csvImportInput').files[0];
+        if (!file) return showToast('CSV 파일을 선택해주세요.');
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result.trim().replace(/^\uFEFF/, '');
             const lines = content.split(/\r?\n/);
             let count = 0;
             const csvRegex = /(?:^|,)(?:"([^"]*)"|([^",]*))/g;
@@ -3291,7 +3300,8 @@
         editRecord, 
         deleteRecord, 
         safeResetData,
-        importData,
+        importJSON,
+        importCSV,
         exportCSV,
         exportJSON,
         setChartFilter,
