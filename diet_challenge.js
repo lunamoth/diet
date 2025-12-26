@@ -572,15 +572,24 @@
         downloadFile(csvContent, "diet_records.csv", "text/csv;charset=utf-8");
     }
 
-    function exportJSON() {
+	function exportJSON() {
         const data = {
             settings: AppState.settings,
             records: AppState.records,
             exportDate: new Date().toISOString()
         };
-        downloadFile(JSON.stringify(data, null, 2), "diet_backup.json", "application/json");
-    }
 
+        // [수정] 날짜 포맷팅 로직 추가 (YYMMDD)
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2); // 2025 -> 25
+        const mm = String(now.getMonth() + 1).padStart(2, '0'); // 1 -> 01
+        const dd = String(now.getDate()).padStart(2, '0'); // 5 -> 05
+        
+        const fileName = `${yy}${mm}${dd}_Diet_Challenge_Backup.json`;
+
+        downloadFile(JSON.stringify(data, null, 2), fileName, "application/json");
+    }
+	
     function downloadFile(content, fileName, mimeType) {
         const blob = new Blob([content], { type: mimeType });
         const link = document.createElement("a");
