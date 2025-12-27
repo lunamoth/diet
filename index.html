@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.55)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.57)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -235,8 +235,8 @@
 
         /* 필터 */
         .filter-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
-        .filter-group { display: flex; gap: 5px; }
-        .filter-btn { background: #f0f0f0; border: none; padding: 6px 12px; border-radius: 15px; font-size: 0.85rem; cursor: pointer; color: var(--text-light); }
+        .filter-group { display: flex; gap: 5px; flex-wrap: wrap; }
+        .filter-btn { background: #f0f0f0; border: none; padding: 6px 12px; border-radius: 15px; font-size: 0.85rem; cursor: pointer; color: var(--text-light); margin-bottom: 5px; }
         body.dark-mode .filter-btn { background: #333; color: #888; }
         .filter-btn.active { background: var(--secondary); color: white; font-weight: bold; }
         .date-range-picker { display: flex; gap: 5px; align-items: center; font-size: 0.85rem; color: var(--text); }
@@ -699,6 +699,32 @@
             <div class="stat-label">근손실 경고등</div>
             <div class="stat-sub" style="font-size:0.65rem;">(주의 필요)</div>
         </div>
+        
+        <!-- === [NEW] v3.0.57 추가 지표 === -->
+        <div class="stat-card">
+            <span class="stat-icon">🧻</span>
+            <div class="stat-value" id="paperTowelDisplay">-</div>
+            <div class="stat-label">휴지 두루마리 효과</div>
+            <div class="stat-sub" style="font-size:0.65rem;">(1% 감량 소요 시간)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">⚖️</span>
+            <div class="stat-value" id="bmiPrimeDisplay">-</div>
+            <div class="stat-label">BMI Prime</div>
+            <div class="stat-sub" style="font-size:0.65rem;">(1.0 이하 정상)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🍔</span>
+            <div class="stat-value" id="surplusCalDisplay">-</div>
+            <div class="stat-label">잉여 칼로리 누적</div>
+            <div class="stat-sub" style="font-size:0.65rem;">(증량분 역산)</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🔋</span>
+            <div class="stat-value" id="metabolicAdaptDisplay">-</div>
+            <div class="stat-label">대사 적응도</div>
+            <div class="stat-sub" style="font-size:0.65rem;">(실제 vs 예상 감량)</div>
+        </div>
     </div>
     
     <!-- 메인 차트 영역 -->
@@ -846,6 +872,32 @@
             </div>
             <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">일일 체중 변동량(g) 분포도</p>
         </div>
+
+        <!-- === [NEW] v3.0.57 추가 차트 === -->
+        <div class="card">
+            <h3>🕸️ 요일별 패턴 분석 (Radar) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <h3>🕯️ 주간 변동 캔들스틱 (Weekly) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="candleStickChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <h3>📉 MACD 추세 지표 <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="macdChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+             <h3>🌀 연간 나선형 비교 (Polar/Radar) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+             <div class="mini-chart-container">
+                 <canvas id="seasonalSpiralChart"></canvas>
+             </div>
+        </div>
     </div>
 
     <!-- 상세 분석 영역 -->
@@ -984,6 +1036,9 @@
                 <button class="filter-btn" id="tab-btn-zone" onclick="App.switchTab('tab-zone')">구간별 체류</button>
                 <button class="filter-btn" id="tab-btn-sprint" onclick="App.switchTab('tab-sprint')">스프린트</button>
                 <button class="filter-btn" id="tab-btn-grades" onclick="App.switchTab('tab-grades')">성적표</button>
+                <!-- [NEW] v3.0.57 추가 탭 -->
+                <button class="filter-btn" id="tab-btn-top5" onclick="App.switchTab('tab-top5')">TOP 5 기록</button>
+                <button class="filter-btn" id="tab-btn-monthly-rate" onclick="App.switchTab('tab-monthly-rate')">월별 승률</button>
             </div>
         </div>
 
@@ -1030,6 +1085,19 @@
              <table class="data-table">
                 <thead><tr><th>구분</th><th>평균 감량 (kg)</th><th>승률 (성공%)</th><th>등급</th></tr></thead>
                 <tbody id="gradesTableBody"><tr><td colspan="4">분석 중...</td></tr></tbody>
+            </table>
+        </div>
+        <!-- [NEW] v3.0.57 추가 탭 컨텐츠 -->
+        <div id="tab-top5" class="tab-content" style="display:none;">
+             <table class="data-table">
+                <thead><tr><th>순위</th><th>최고 감량일 (Drop)</th><th>최고 증량일 (Gain)</th><th>연속 감량 (Streak)</th></tr></thead>
+                <tbody id="top5TableBody"><tr><td colspan="4">분석 중...</td></tr></tbody>
+            </table>
+        </div>
+        <div id="tab-monthly-rate" class="tab-content" style="display:none;">
+             <table class="data-table">
+                <thead><tr><th>월</th><th>감량 성공일 수</th><th>전체 일수</th><th>승률 (%)</th></tr></thead>
+                <tbody id="monthlyRateTableBody"><tr><td colspan="4">분석 중...</td></tr></tbody>
             </table>
         </div>
     </div>

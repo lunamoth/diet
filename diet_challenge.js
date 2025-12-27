@@ -74,13 +74,18 @@
             { id: 'weekendRuler', name: '주말의 지배자', icon: '🧛', desc: '금요일 아침보다 월요일 아침 체중이 같거나 낮았습니다.' },
             { id: 'curiosity', name: '궁금증 해결사', icon: '🕵️', desc: '체지방률을 안 재다가 10일 연속으로 꼼꼼히 기록했습니다.' },
             { id: 'timeTraveler', name: '시공간 초월', icon: '🚀', desc: '예상 완료일을 10일 이상 앞당겼습니다.' },
-            // --- [NEW] 새로운 업적 ---
             { id: 'parking', name: '주차의 달인', icon: '🅿️', desc: '14일 동안 체중 변동 폭이 ±0.3kg 이내로 유지되었습니다.' },
             { id: 'whoosh', name: '후루룩', icon: '📉', desc: '정체기 직후 하루 만에 0.8kg 이상 감량되었습니다.' },
             { id: 'fullMoon', name: '보름달', icon: '🌕', desc: '한 달(30일) 동안 하루도 빠짐없이 기록했습니다.' },
             { id: 'lucky7', name: '럭키 세븐', icon: '🎰', desc: '체중의 소수점 자리가 .7 또는 .77로 끝납니다.' },
             { id: 'ironWall', name: '철벽 방어', icon: '🧱', desc: '최고 체중 직전에서 다시 감량했습니다.' },
-            { id: 'seasonality', name: '시즌 플레이어', icon: '🗓️', desc: '4계절(3, 6, 9, 12월)에 모두 기록이 존재합니다.' }
+            { id: 'seasonality', name: '시즌 플레이어', icon: '🗓️', desc: '4계절(3, 6, 9, 12월)에 모두 기록이 존재합니다.' },
+            // --- [NEW] v3.0.57 추가 업적 ---
+            { id: 'decalcomania', name: '데칼코마니', icon: '🪞', desc: '이틀 연속 체중이 소수점까지 완전히 똑같습니다.' },
+            { id: 'cleaning', name: '대청소', icon: '🧹', desc: '체지방 감량량이 총 체중 감량량보다 큽니다. (이상적 감량)' },
+            { id: 'gyroDrop', name: '자이로드롭', icon: '📉', desc: '하루 만에 1.0kg 이상 빠졌습니다.' },
+            { id: 'weekendSniper', name: '주말의 명사수', icon: '🗓️', desc: '금요일 체중보다 월요일 체중이 더 낮습니다.' },
+            { id: 'piMiracle', name: '파이(π)의 기적', icon: '🔢', desc: '3.14kg 감량했거나 체중이 .14로 끝납니다.' }
         ]
     };
 
@@ -194,7 +199,8 @@
             main: null, dow: null, hist: null, cumul: null, monthly: null, fat: null, scatter: null, 
             weekend: null, bodyComp: null, boxPlot: null, roc: null, ghostRunner: null, 
             gaugeBmi: null, gaugeFat: null, weeklyBodyComp: null,
-            weightSpeedScatter: null, waterfall: null, seasonality: null, bellCurve: null
+            weightSpeedScatter: null, waterfall: null, seasonality: null, bellCurve: null,
+            radar: null, candleStick: null, macd: null, seasonalSpiral: null
         },
         // [Refactor] DOM Cache (lazy load)
         _elCache: {},
@@ -216,6 +222,7 @@
     function init() {
         // DOM 요소 캐싱 리스트 (필요 시 getEl로 접근)
         // [Modified] csvFileInput 제거, jsonFileInput, csvImportInput 추가
+        // [Modified v3.0.57] Added new IDs
         const ids = [
             'dateInput', 'weightInput', 'fatInput', 'userHeight', 'startWeight', 'goal1Weight', 'dailyIntake',
             'settingsPanel', 'badgeGrid', 'jsonFileInput', 'csvImportInput', 'resetConfirmInput', 'recordInputGroup',
@@ -230,14 +237,19 @@
             'plateauHelperText', 'yoyoRiskDisplay', 'recent3DayAvgDisplay', 'weeklySpeedDisplay', 'idealWeeklyRateDisplay',
             'bodyCompBalanceDisplay', 'lossConsistencyDisplay', 'calEfficiencyDisplay', 'volatilityIndexDisplay', 'bodyCompTrendDisplay',
             'metabolicAgeDisplay', 'dietCostDisplay', 'weekendImpactDisplay', 'muscleLossCard', 'muscleLossDisplay',
+            'paperTowelDisplay', 'bmiPrimeDisplay', 'surplusCalDisplay', 'metabolicAdaptDisplay',
             'dailyWinRateTable', 'zoneDurationTable', 'streakDetailTable', 'bestWorstMonthTable', 'zoneReportTableBody', 'sprintTableBody', 'gradesTableBody',
+            'top5TableBody', 'monthlyRateTableBody',
             'advancedAnalysisList', 'calendarContainer', 'periodCompareTable', 'detailedStatsTable',
             'progressBarFill', 'progressEmoji', 'progressText', 'labelStart', 'labelGoal',
             'bmiProgressBarFill', 'bmiProgressEmoji', 'bmiProgressText', 'bmiLabelLeft', 'bmiLabelRight',
             'rate7Days', 'rate30Days', 'weeklyCompareDisplay', 'heatmapGrid', 'chartBackdrop',
             'monthlyTableBody', 'weeklyTableBody', 'milestoneTableBody', 'historyList',
-            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 'tab-zone', 'tab-sprint', 'tab-grades',
-            'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'tab-btn-zone', 'tab-btn-sprint', 'tab-btn-grades', 'recordBtn'
+            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 'tab-zone', 'tab-sprint', 'tab-grades', 'tab-top5', 'tab-monthly-rate',
+            'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 
+            'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'tab-btn-zone', 'tab-btn-sprint', 'tab-btn-grades', 'tab-btn-top5', 'tab-btn-monthly-rate',
+            'recordBtn',
+            'radarChart', 'candleStickChart', 'macdChart', 'seasonalSpiralChart'
         ];
         // 캐싱 선작업 (선택적)
         ids.forEach(id => AppState.getEl(id));
@@ -438,6 +450,7 @@
         const rBtn = AppState.getEl('recordBtn');
         rBtn.innerText = '기록하기 📝';
         rBtn.classList.remove('editing-mode');
+        // [Fixed] 입력 후 포커스 유지 UX 개선
         AppState.getEl('weightInput').focus();
     }
 
@@ -602,8 +615,10 @@
 
     // --- 4. 메인 렌더링 함수 (updateUI - 최적화 적용) ---
     function updateUI() {
+        // [Fixed] 메모이제이션(Memoization) 적용: 변경 시에만 재계산
         if(AppState.state.isDirty) {
             AppState.state.statsCache = analyzeRecords(AppState.records);
+            AppState.state.isDirty = false; // 플래그 초기화
         }
         const s = AppState.state.statsCache;
         
@@ -638,6 +653,12 @@
         updateWaterfallChart(colors);
         updateSeasonalityChart(colors);
         updateBellCurveChart(colors);
+        
+        // v3.0.57 New Charts
+        updateRadarChart(colors);
+        updateCandleStickChart(colors);
+        updateMacdChart(colors);
+        updateSeasonalSpiralChart(colors);
 
         renderHeatmap();
         renderCalendarView(); 
@@ -732,6 +753,7 @@
              pct = (currentGap / totalGap) * 100;
         }
         
+        // [Fixed] 부동소수점 및 범위 보정
         const displayPct = MathUtil.clamp(pct, 0, 100);
         AppState.getEl('progressPercent').innerText = displayPct.toFixed(1) + '%';
         
@@ -877,15 +899,29 @@
                     const eff = (actualDeficit / estimatedTdee) * 100;
                     calEffEl.innerText = `${eff.toFixed(1)}%`;
                 }
+
+                // [NEW] v3.0.57 Metabolic Adaptation
+                const maEl = AppState.getEl('metabolicAdaptDisplay');
+                if(maEl) {
+                    const expectedLossKg = (estimatedTdee - userIntake) / 7700;
+                    const diff = dailyLoss - expectedLossKg; // if negative, slowing down
+                    if (diff < -0.05) maEl.innerText = "대사 저하 의심";
+                    else maEl.innerText = "정상 범위";
+                }
+
             } else {
                 AppState.getEl('estTdeeDisplay').innerText = '-';
                 const calEffEl = AppState.getEl('calEfficiencyDisplay');
                 if(calEffEl) calEffEl.innerText = '-';
+                const maEl = AppState.getEl('metabolicAdaptDisplay');
+                if(maEl) maEl.innerText = '-';
             }
         } else {
             AppState.getEl('estTdeeDisplay').innerText = '데이터 수집중';
             const calEffEl = AppState.getEl('calEfficiencyDisplay');
             if(calEffEl) calEffEl.innerText = '-';
+            const maEl = AppState.getEl('metabolicAdaptDisplay');
+            if(maEl) maEl.innerText = '-';
         }
 
         const totalLost = MathUtil.diff(AppState.settings.startWeight, s.current);
@@ -981,6 +1017,19 @@
                  yoyoEl.innerText = `${riskScore}점 (${riskLabel})`;
                  DomUtil.setTextColor(yoyoEl, riskColor);
              }
+             
+             // [NEW] v3.0.57 Paper Towel Effect
+             const ptEl = AppState.getEl('paperTowelDisplay');
+             if(ptEl) {
+                 const dailyRate = Math.abs(wSpeed / 7);
+                 if (dailyRate > 0) {
+                    const onePercent = s.current * 0.01;
+                    const days = onePercent / dailyRate;
+                    ptEl.innerText = `${days.toFixed(1)}일`;
+                 } else {
+                     ptEl.innerText = '유지/증량 중';
+                 }
+             }
 
         } else {
             waterEl.innerText = '-';
@@ -990,6 +1039,8 @@
             if(volEl) volEl.innerText = '-';
             const yoyoEl = AppState.getEl('yoyoRiskDisplay');
             if(yoyoEl) yoyoEl.innerText = '-';
+            const ptEl = AppState.getEl('paperTowelDisplay');
+            if(ptEl) ptEl.innerText = '-';
         }
 
         const startRecWithFat = AppState.records.find(r => r.fat);
@@ -1081,6 +1132,27 @@
             AppState.getEl('ffmiDisplay').innerText = ffmi.toFixed(1);
         } else {
              AppState.getEl('ffmiDisplay').innerText = '-';
+        }
+
+        // [NEW] v3.0.57 Extra Stats
+        const hMeter = AppState.settings.height / 100;
+        const currentBmi = s.current / (hMeter * hMeter);
+        const bpEl = AppState.getEl('bmiPrimeDisplay');
+        if(bpEl) {
+            // BMI Prime = BMI / 23 (Upper Normal)
+            const prime = currentBmi / 23;
+            bpEl.innerText = prime.toFixed(2);
+            DomUtil.setTextColor(bpEl, prime <= 1.0 ? 'primary' : 'danger');
+        }
+
+        const surplusEl = AppState.getEl('surplusCalDisplay');
+        if(surplusEl) {
+            let surplus = 0;
+            for(let i=1; i<AppState.records.length; i++) {
+                const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+                if(diff > 0) surplus += (diff * 7700);
+            }
+            surplusEl.innerText = `+${Math.round(surplus).toLocaleString()} kcal`;
         }
     }
 
@@ -1339,6 +1411,42 @@
             }
         }
 
+        // --- [NEW] v3.0.57 New Analysis Texts ---
+        // 7-Day Rule Warning
+        if(dayAvgs[4] < 0 && (dayAvgs[5] > 0 || dayAvgs[6] > 0)) {
+            htmlLines.push(`<li class="insight-item text-danger"><span class="insight-label">🗓️ 7일의 법칙 경고:</span>
+                "지난 4주간 통계를 보니, 목요일까지 잘 빼다가 금~토에 다시 찌우는 패턴이 반복됩니다. 이번 주 금요일을 조심하세요!"</li>`);
+        }
+
+        // Stop Loss Suggestion
+        let gainStreak = 0, gainSum = 0;
+        for(let i=AppState.records.length-1; i>0; i--) {
+            const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+            if(diff > 0) { gainStreak++; gainSum += diff; }
+            else break;
+        }
+        if(gainStreak >= 3 && gainSum >= 1.5) {
+             htmlLines.push(`<li class="insight-item text-danger"><span class="insight-label">📉 손절매(Stop Loss) 제안:</span>
+                "최근 3일 연속 증량 중이며 총 +${gainSum.toFixed(1)}kg입니다. 통계적으로 오늘 식단을 조절하지 않으면 2주 전 체중으로 복귀할 확률이 높습니다."</li>`);
+        }
+
+        // Fake Plateau
+        if(maxPlateau >= 7) {
+            // Check trend
+            const last7 = AppState.records.slice(-7);
+            const trend = last7[last7.length-1].weight - (last7.reduce((a,b)=>a+b.weight,0)/7);
+            if(Math.abs(last7[0].weight - last7[6].weight) < 0.2 && trend < 0) {
+                 htmlLines.push(`<li class="insight-item"><span class="insight-label">💊 가짜 정체기 판별:</span>
+                    "체중은 그대로지만, 7일 평균선은 미세하게 우하향 중입니다. 이것은 정체기가 아니라 '계단식 하락' 직전의 구간일 수 있습니다. 포기하지 마세요."</li>`);
+            }
+        }
+
+        // Hormone Pattern
+        if(cyclePattern) {
+             htmlLines.push(`<li class="insight-item"><span class="insight-label">🌙 호르몬 패턴 감지:</span>
+                "약 28일 주기로 체중이 급증하는 패턴이 감지됩니다. 현재는 '황체기(붓기 증가)' 시기일 수 있으니 일시적 증량에 스트레스받지 마세요."</li>`);
+        }
+
         AppState.getEl('advancedAnalysisList').innerHTML = htmlLines.join('');
     }
 
@@ -1573,6 +1681,7 @@
         const maxScale = 35;
         
         let pct = ((bmi - minScale) / (maxScale - minScale)) * 100;
+        // [Fixed] MathUtil.clamp 적용
         let visualPercent = MathUtil.clamp(pct, 0, 100);
         let rightPos = 100 - visualPercent;
 
@@ -1822,7 +1931,8 @@
                 chart.data = config.data;
                 // 옵션 최상위 병합
                 Object.assign(chart.options, config.options);
-                chart.update('none'); // 애니메이션 없이 즉시 갱신
+                // [Fixed] 다크모드 등 색상 변경 시 반영을 위해 update('none') 대신 일반 update 사용
+                chart.update(); 
             } else {
                 // 차트 타입이 변경된 경우 재생성
                 chart.destroy();
@@ -1836,7 +1946,7 @@
     function updateMainChart(colors) {
         const ctx = document.getElementById('mainChart').getContext('2d');
         const data = getFilteredData();
-        const showTrend = AppState.getEl('showTrend').checked;
+        // [Fixed] 데이터가 없을 때의 안전 장치 추가
         const points = data.map(r => ({ x: r.date, y: r.weight }));
         
         const h = AppState.settings.height / 100;
@@ -1844,14 +1954,16 @@
         const w23 = CONFIG.BMI.NORMAL_END * h * h;
         const w25 = CONFIG.BMI.PRE_OBESE_END * h * h;
         
+        // [Fixed] points가 비었을 때 기본값 처리
         const chartStart = points.length ? points[0].x : new Date();
         const chartEnd = points.length ? points[points.length-1].x : new Date();
 
         const trend = [];
         const upperBand = [];
         const lowerBand = [];
+        const showTrend = AppState.getEl('showTrend').checked;
 
-        if(showTrend) {
+        if(showTrend && data.length > 0) {
             for(let i=0; i<data.length; i++) {
                 const currentDate = DateUtil.parse(data[i].date);
                 const sevenDaysAgo = new Date(currentDate);
@@ -1978,7 +2090,7 @@
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
 
-        // 31일 고정 X축에서 해당 월에 존재하지 않는 날짜는 null 처리
+        // [Fixed] 1일~31일 고정 X축에서 해당 월에 존재하지 않는 날짜는 null 처리
         const getMonthData = (m, y) => {
             const daysInMonth = DateUtil.getDaysInMonth(y, m);
             const data = new Array(31).fill(null);
@@ -1986,11 +2098,13 @@
             AppState.records.forEach(r => {
                 const d = DateUtil.parse(r.date);
                 if(d.getMonth() === m && d.getFullYear() === y) {
+                    // d.getDate()는 1부터 시작하므로 인덱스는 -1
                     data[d.getDate() - 1] = r.weight;
                 }
             });
 
             // 해당 월의 유효 일자까지만 값 유지 (예: 2월은 28/29일 이후 null)
+            // 나머지 30, 31일 등은 null로 둬서 그래프가 끊기게 처리
             return data.map((val, idx) => (idx < daysInMonth ? val : null));
         };
 
@@ -2608,11 +2722,229 @@
 
         updateChartHelper('bellCurve', ctx, config);
     }
+    
+    // --- [NEW] v3.0.57 New Charts ---
+    function updateRadarChart(colors) {
+        if(AppState.records.length < 2) return;
+        const lossSum = [0,0,0,0,0,0,0];
+        const count = [0,0,0,0,0,0,0];
+        const gainCount = [0,0,0,0,0,0,0];
+        
+        for(let i=1; i<AppState.records.length; i++) {
+             const d = DateUtil.parse(AppState.records[i].date).getDay();
+             const diff = AppState.records[i-1].weight - AppState.records[i].weight; // Loss
+             lossSum[d] += diff;
+             count[d]++;
+             if(diff < -0.3) gainCount[d]++; // Significant gain
+        }
+
+        const avgLoss = lossSum.map((s,i) => count[i] ? s/count[i] : 0);
+        // Normalize for visual
+        const maxLoss = Math.max(...avgLoss.map(Math.abs));
+        const normAvgLoss = avgLoss.map(v => v > 0 ? (v/maxLoss)*100 : 0); // Only show positive loss strength
+        const freq = count.map(c => (c / Math.max(...count)) * 100);
+        const overeat = gainCount.map((c, i) => count[i] ? (c / count[i]) * 100 : 0);
+
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        const config = createChartConfig('radar', {
+            labels: ['일','월','화','수','목','금','토'],
+            datasets: [
+                {
+                    label: '평균 감량 강도',
+                    data: normAvgLoss,
+                    borderColor: colors.primary,
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)'
+                },
+                {
+                    label: '기록 빈도',
+                    data: freq,
+                    borderColor: colors.secondary,
+                    backgroundColor: 'rgba(33, 150, 243, 0.2)'
+                },
+                {
+                    label: '증량(과식) 비율',
+                    data: overeat,
+                    borderColor: colors.danger,
+                    backgroundColor: 'rgba(244, 67, 54, 0.2)'
+                }
+            ]
+        }, {
+            scales: {
+                r: {
+                    angleLines: { color: colors.grid },
+                    grid: { color: colors.grid },
+                    pointLabels: { color: colors.text },
+                    suggestedMin: 0,
+                    suggestedMax: 100
+                }
+            }
+        }, colors);
+        updateChartHelper('radar', ctx, config);
+    }
+
+    function updateCandleStickChart(colors) {
+        if(AppState.records.length < 2) return;
+        
+        // Group by ISO Week
+        const weeks = {};
+        AppState.records.forEach(r => {
+            const d = DateUtil.parse(r.date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day == 0 ? -6 : 1); // Monday
+            const monday = new Date(d.setDate(diff));
+            monday.setHours(0,0,0,0);
+            const key = monday.getTime();
+            if(!weeks[key]) weeks[key] = [];
+            weeks[key].push(r.weight);
+        });
+
+        const labels = [];
+        const data = [];
+        const bgColors = [];
+
+        Object.keys(weeks).sort().forEach(k => {
+            const wData = weeks[k];
+            const min = Math.min(...wData);
+            const max = Math.max(...wData);
+            const open = wData[0];
+            const close = wData[wData.length-1];
+            
+            const d = new Date(parseInt(k));
+            labels.push(DateUtil.format(d).substring(5)); // MM-DD
+            data.push([min, max]); // Floating bar for Range
+            bgColors.push(close < open ? colors.primary : colors.danger);
+        });
+
+        const ctx = document.getElementById('candleStickChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: labels,
+            datasets: [{
+                label: '주간 변동 범위 (Min-Max)',
+                data: data,
+                backgroundColor: bgColors,
+                borderWidth: 1,
+                borderColor: colors.text,
+                barPercentage: 0.6
+            }]
+        }, {
+             plugins: { 
+                 legend: { display: false },
+                 tooltip: {
+                     callbacks: {
+                         label: (ctx) => `범위: ${ctx.raw[0]} ~ ${ctx.raw[1]}`
+                     }
+                 }
+            }
+        }, colors);
+        updateChartHelper('candleStick', ctx, config);
+    }
+    
+    function updateMacdChart(colors) {
+        if(AppState.records.length < 26) return;
+        
+        const prices = AppState.records.map(r => r.weight);
+        const dates = AppState.records.map(r => r.date);
+        
+        const calcEma = (data, period) => {
+            const k = 2 / (period + 1);
+            let emaArr = [data[0]];
+            for(let i=1; i<data.length; i++) {
+                emaArr.push(data[i] * k + emaArr[i-1] * (1 - k));
+            }
+            return emaArr;
+        };
+
+        const ema12 = calcEma(prices, 12);
+        const ema26 = calcEma(prices, 26);
+        const macdLine = ema12.map((v, i) => v - ema26[i]);
+        const signalLine = calcEma(macdLine, 9);
+        const histogram = macdLine.map((v, i) => v - signalLine[i]);
+
+        // Slice to show recent trend clearly
+        const sliceIdx = Math.max(0, prices.length - 60);
+        
+        const ctx = document.getElementById('macdChart').getContext('2d');
+        const config = createChartConfig('bar', {
+            labels: dates.slice(sliceIdx),
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'MACD Hist',
+                    data: histogram.slice(sliceIdx),
+                    backgroundColor: histogram.slice(sliceIdx).map(v => v < 0 ? colors.primary : colors.danger)
+                },
+                {
+                    type: 'line',
+                    label: 'MACD',
+                    data: macdLine.slice(sliceIdx),
+                    borderColor: colors.text,
+                    borderWidth: 1,
+                    pointRadius: 0
+                },
+                {
+                    type: 'line',
+                    label: 'Signal',
+                    data: signalLine.slice(sliceIdx),
+                    borderColor: colors.accent,
+                    borderWidth: 1,
+                    pointRadius: 0
+                }
+            ]
+        }, { scales: { x: { display: false } } }, colors);
+        updateChartHelper('macd', ctx, config);
+    }
+
+    function updateSeasonalSpiralChart(colors) {
+        if(AppState.records.length === 0) return;
+        const now = new Date();
+        const thisYear = now.getFullYear();
+        const lastYear = thisYear - 1;
+        
+        const getDataForYear = (y) => {
+            const months = new Array(12).fill(null);
+            AppState.records.forEach(r => {
+                const d = DateUtil.parse(r.date);
+                if(d.getFullYear() === y) {
+                    const m = d.getMonth();
+                    // Average for month
+                    if(months[m] === null) months[m] = { sum: 0, count: 0 };
+                    months[m].sum += r.weight;
+                    months[m].count++;
+                }
+            });
+            return months.map(m => m ? m.sum/m.count : null);
+        };
+
+        const dThis = getDataForYear(thisYear);
+        const dLast = getDataForYear(lastYear);
+
+        const ctx = document.getElementById('seasonalSpiralChart').getContext('2d');
+        const config = createChartConfig('radar', {
+            labels: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+            datasets: [
+                {
+                    label: `${thisYear}년`,
+                    data: dThis,
+                    borderColor: colors.primary,
+                    backgroundColor: 'rgba(76, 175, 80, 0.2)'
+                },
+                {
+                    label: `${lastYear}년`,
+                    data: dLast,
+                    borderColor: colors.secondary,
+                    backgroundColor: 'rgba(33, 150, 243, 0.2)'
+                }
+            ]
+        }, {
+            scales: { r: { angleLines: { display: true }, grid: { circular: true } } }
+        }, colors);
+        updateChartHelper('seasonalSpiral', ctx, config);
+    }
 
     // --- 8. 테이블 & 히트맵 & 캘린더 & 뱃지 렌더링 ---
     function renderHeatmap() {
         const container = AppState.getEl('heatmapGrid');
-        container.innerHTML = ''; // Reflow를 피하기 위해 DocumentFragment 사용 권장이지만 간결성 유지
+        container.innerHTML = ''; // [Optimization] Reflow를 피하기 위해 DocumentFragment 사용
         if(AppState.records.length === 0) return;
 
         const deltaMap = {};
@@ -2624,7 +2956,7 @@
         const end = new Date();
         const start = new Date(); start.setFullYear(start.getFullYear()-1);
         
-        // [Refactor] DocumentFragment 사용으로 리플로우 최소화
+        // [Optimization] DocumentFragment 사용
         const fragment = document.createDocumentFragment();
         
         for(let d=start; d<=end; d.setDate(d.getDate()+1)) {
@@ -2812,6 +3144,67 @@
             }
         });
         AppState.getEl('gradesTableBody').innerHTML = gRows.join('');
+        
+        // --- [NEW] v3.0.57 Top 5 & Monthly Rate Tables ---
+        renderTop5Table();
+        renderMonthlyRateTable();
+    }
+    
+    // [NEW] v3.0.57 Render Top 5 Table
+    function renderTop5Table() {
+        const drops = [], gains = [];
+        let maxStreak = 0, curStreak = 0;
+        
+        for(let i=1; i<AppState.records.length; i++) {
+             const diff = AppState.records[i].weight - AppState.records[i-1].weight;
+             if(diff < 0) {
+                 drops.push({ date: AppState.records[i].date, val: diff });
+                 curStreak++;
+             } else {
+                 gains.push({ date: AppState.records[i].date, val: diff });
+                 if(curStreak > maxStreak) maxStreak = curStreak;
+                 curStreak = 0;
+             }
+        }
+        if(curStreak > maxStreak) maxStreak = curStreak;
+        
+        drops.sort((a,b) => a.val - b.val); // Ascending (most negative first)
+        gains.sort((a,b) => b.val - a.val); // Descending (max positive first)
+        
+        const topDrops = drops.slice(0, 5);
+        const topGains = gains.slice(0, 5);
+        
+        let html = '';
+        for(let i=0; i<5; i++) {
+            html += `<tr>
+                <td>${i+1}위</td>
+                <td>${topDrops[i] ? topDrops[i].date + ' (' + topDrops[i].val.toFixed(1) + 'kg)' : '-'}</td>
+                <td>${topGains[i] ? topGains[i].date + ' (+' + topGains[i].val.toFixed(1) + 'kg)' : '-'}</td>
+                <td>${i===0 ? maxStreak + '일 연속' : '-'}</td>
+            </tr>`;
+        }
+        AppState.getEl('top5TableBody').innerHTML = html;
+    }
+
+    // [NEW] v3.0.57 Render Monthly Rate Table
+    function renderMonthlyRateTable() {
+        const months = {};
+        AppState.records.forEach((r, i) => {
+            if(i===0) return;
+            const k = r.date.substring(0, 7);
+            if(!months[k]) months[k] = { success: 0, total: 0 };
+            const diff = r.weight - AppState.records[i-1].weight;
+            months[k].total++;
+            if(diff < 0) months[k].success++;
+        });
+        
+        let html = '';
+        Object.keys(months).sort().reverse().forEach(m => {
+            const d = months[m];
+            const rate = d.total > 0 ? ((d.success / d.total) * 100).toFixed(0) : 0;
+            html += `<tr><td>${m}</td><td>${d.success}일</td><td>${d.total}일</td><td>${rate}%</td></tr>`;
+        });
+        AppState.getEl('monthlyRateTableBody').innerHTML = html;
     }
 
     function renderMonthlyTable() {
@@ -2903,11 +3296,12 @@
         AppState.getEl('historyList').innerHTML = rows.join('');
     }
 
-    function renderBadges(s) {
+	function renderBadges(s) {
         if(AppState.records.length === 0) return;
         const totalLost = MathUtil.diff(AppState.settings.startWeight, s.current);
         const streak = s.maxStreak || 0;
 
+        // [수정] flags 객체 초기화 시 자기 자신 참조 오류 해결 (plateauDestroyer: false로 변경)
         const flags = {
             weekendDef: false,
             plateauBreak: false,
@@ -2927,7 +3321,7 @@
             reborn: false,
             slowSteady: false,
             weightExpert: false,
-            plateauDestroyer: false,
+            plateauDestroyer: false, 
             iconOfConstancy: false,
             bigStep: false,
             phoenix: false,
@@ -2939,7 +3333,13 @@
             fullMoon: false,
             lucky7: false,
             ironWall: false,
-            seasonality: false
+            seasonality: false,
+            // [NEW] v3.0.57 Flags
+            decalcomania: false,
+            cleaning: false,
+            gyroDrop: false,
+            weekendSniper: false,
+            piMiracle: false
         };
 
         if(AppState.records.length > 1) {
@@ -3170,6 +3570,39 @@
                 if(m===12) seasons.add('Winter');
             });
             if(seasons.size === 4) flags.seasonality = true;
+
+            // --- [NEW] v3.0.57 New Badges Logic ---
+            for(let i=1; i<AppState.records.length; i++) {
+                if(AppState.records[i].weight === AppState.records[i-1].weight &&
+                   DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date)) === 1) {
+                    flags.decalcomania = true; break;
+                }
+            }
+
+            if(s.fatChange < 0 && s.fatChange < totalLost * -1) flags.cleaning = true; // both negative, fat change is 'more negative'
+
+            for(let i=1; i<AppState.records.length; i++) {
+                if(AppState.records[i-1].weight - AppState.records[i].weight >= 1.0 && 
+                   DateUtil.daysBetween(DateUtil.parse(AppState.records[i-1].date), DateUtil.parse(AppState.records[i].date)) === 1) {
+                    flags.gyroDrop = true; break;
+                }
+            }
+
+            for(let i=0; i<AppState.records.length; i++) {
+                 const d = DateUtil.parse(AppState.records[i].date);
+                 if(d.getDay() === 1) { // Monday
+                     const prevFriDate = new Date(d); prevFriDate.setDate(d.getDate()-3);
+                     const prevFriStr = DateUtil.format(prevFriDate);
+                     const friRec = AppState.records.find(r => r.date === prevFriStr);
+                     if(friRec && AppState.records[i].weight < friRec.weight) {
+                         flags.weekendSniper = true; break;
+                     }
+                 }
+            }
+
+            if(Math.abs(totalLost - 3.14) < 0.05 || s.current.toString().endsWith('.14') || s.current.toString().endsWith('3.14')) {
+                flags.piMiracle = true;
+            }
         }
 
         const badgeConditions = {
@@ -3211,7 +3644,13 @@
             fullMoon: flags.fullMoon,
             lucky7: flags.lucky7,
             ironWall: flags.ironWall,
-            seasonality: flags.seasonality
+            seasonality: flags.seasonality,
+            // [NEW]
+            decalcomania: flags.decalcomania,
+            cleaning: flags.cleaning,
+            gyroDrop: flags.gyroDrop,
+            weekendSniper: flags.weekendSniper,
+            piMiracle: flags.piMiracle
         };
 
         let rows = [];
@@ -3225,19 +3664,23 @@
         });
         AppState.getEl('badgeGrid').innerHTML = rows.join('');
     }
-
+	
+	
     function switchTab(tabId) {
         document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
         AppState.getEl(tabId).style.display = 'block';
         
         document.querySelectorAll('.filter-group button[id^="tab-btn"]').forEach(b => b.classList.remove('active'));
-        if(tabId.includes('monthly')) AppState.getEl('tab-btn-monthly').classList.add('active');
+        if(tabId.includes('monthly') && !tabId.includes('rate')) AppState.getEl('tab-btn-monthly').classList.add('active');
         if(tabId.includes('weekly')) AppState.getEl('tab-btn-weekly').classList.add('active');
         if(tabId.includes('milestone')) AppState.getEl('tab-btn-milestone').classList.add('active');
         if(tabId.includes('history')) AppState.getEl('tab-btn-history').classList.add('active');
         if(tabId.includes('zone')) AppState.getEl('tab-btn-zone').classList.add('active');
         if(tabId.includes('sprint')) AppState.getEl('tab-btn-sprint').classList.add('active');
         if(tabId.includes('grades')) AppState.getEl('tab-btn-grades').classList.add('active');
+        // [NEW] v3.0.57 Tab Buttons
+        if(tabId.includes('top5')) AppState.getEl('tab-btn-top5').classList.add('active');
+        if(tabId.includes('monthly-rate')) AppState.getEl('tab-btn-monthly-rate').classList.add('active');
     }
 
     function toggleChartExpand(btn) {
