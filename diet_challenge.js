@@ -1414,7 +1414,7 @@
         // --- [NEW] v3.0.57 New Analysis Texts ---
         // 7-Day Rule Warning
         if(dayAvgs[4] < 0 && (dayAvgs[5] > 0 || dayAvgs[6] > 0)) {
-            htmlLines.push(`<li class="insight-item text-danger"><span class="insight-label">🗓️ 7일의 법칙 경고:</span>
+            htmlLines.push(`<li class="insight-item"><span class="insight-label">🗓️ 7일의 법칙 경고:</span>
                 "지난 4주간 통계를 보니, 목요일까지 잘 빼다가 금~토에 다시 찌우는 패턴이 반복됩니다. 이번 주 금요일을 조심하세요!"</li>`);
         }
 
