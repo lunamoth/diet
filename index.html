@@ -1055,6 +1055,12 @@
         </div>
 
         <!-- 탭 내용 -->
+        <div id="tab-history" class="tab-content" style="max-height: 1200px; overflow-y: auto;">
+            <table class="data-table">
+                <thead><tr><th>날짜</th><th>체중</th><th>체지방</th><th>변화</th><th>관리</th></tr></thead>
+                <tbody id="historyList"></tbody>
+            </table>
+        </div>
 		<div id="tab-monthly" class="tab-content" style="display:none;">
             <table class="data-table">
                 <thead><tr><th>월</th><th>시작</th><th>종료</th><th>변화량</th><th>평균</th></tr></thead>
@@ -1071,13 +1077,6 @@
             <table class="data-table">
                 <thead><tr><th>달성 목표</th><th>달성일</th><th>소요 기간</th></tr></thead>
                 <tbody id="milestoneTableBody"></tbody>
-            </table>
-        </div>
-        <!-- Sticky Header 적용 및 이벤트 위임용 ID 추가 -->
-        <div id="tab-history" class="tab-content" style="max-height: 1200px; overflow-y: auto;">
-            <table class="data-table">
-                <thead><tr><th>날짜</th><th>체중</th><th>체지방</th><th>변화</th><th>관리</th></tr></thead>
-                <tbody id="historyList"></tbody>
             </table>
         </div>
         <!-- [NEW] 새로운 탭 컨텐츠 -->
