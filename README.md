@@ -1,6 +1,6 @@
 # 💪 다이어트 챌린지 (Diet Challenge)
 
-![Version](https://img.shields.io/badge/version-3.0.62-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-Active-success)
+![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-Active-success)
 
 **다이어트 챌린지**는 서버 없이 브라우저에서 동작하는 **데이터 기반 체중 관리 웹 애플리케이션**입니다.
 단순한 체중 기록을 넘어, 다양한 차트와 통계 분석, 게이미피케이션(뱃지) 요소를 통해 사용자의 지속적인 동기 부여를 돕습니다.
