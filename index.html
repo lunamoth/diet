@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.61)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.62)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -329,6 +329,18 @@
 
     .expanded-card .gauge-container { height: 70% !important; align-items: center !important; }
     .expanded-card .gauge-wrapper { max-width: 45% !important; }
+
+    /* --- [NEW] 인라인 수정용 스타일 추가 --- */
+    .inline-input {
+        width: 70px; padding: 5px; border: 1px solid var(--primary);
+        border-radius: 5px; font-size: 0.9rem; text-align: center;
+        background: var(--card-bg); color: var(--text);
+    }
+    .inline-btn {
+        border: none; background: none; cursor: pointer; font-size: 1.1rem; margin: 0 3px;
+        transition: transform 0.1s;
+    }
+    .inline-btn:hover { transform: scale(1.2); }
 	
     </style>
 </head>

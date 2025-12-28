@@ -311,8 +311,10 @@
                 if (!btn) return;
                 const action = btn.dataset.action;
                 const date = btn.dataset.date;
-                if (action === 'edit') editRecord(date);
+                if (action === 'edit') App.enableInlineEdit(date); // [Changed] 인라인 수정 모드로 변경
                 else if (action === 'delete') deleteRecord(date);
+                else if (action === 'save-inline') App.saveInlineEdit(date); // [New] 인라인 저장
+                else if (action === 'cancel-inline') App.cancelInlineEdit(); // [New] 인라인 취소
             });
         }
 
@@ -466,6 +468,7 @@
     }
 
     function editRecord(date) {
+        // 기존 상단 폼 수정용 (인라인 수정 기능 추가로 현재 사용하지 않지만 유지)
         const record = AppState.records.find(r => r.date === date);
         if (record) {
             AppState.getEl('dateInput').value = record.date;
@@ -3773,7 +3776,64 @@
         jumpToCalendarDate,
         switchTab,
         toggleChartExpand,
-        closeAllExpands
+        closeAllExpands,
+        
+        // [New] 인라인 수정 API
+        enableInlineEdit: function(date) {
+            const btn = document.querySelector(`button[data-date="${date}"][data-action="edit"]`);
+            if(!btn) return;
+            const tr = btn.closest('tr');
+            const record = AppState.records.find(r => r.date === date);
+            if(!record) return;
+
+            // Cells: 0:Date, 1:Weight, 2:Fat, 3:Diff, 4:Action
+            // Date는 그대로 둠.
+            // Weight
+            tr.cells[1].innerHTML = `<input type="number" class="inline-input" id="inline-weight-${date}" value="${record.weight}" step="0.1">`;
+            // Fat (입력 없으면 빈칸)
+            tr.cells[2].innerHTML = `<input type="number" class="inline-input" id="inline-fat-${date}" value="${record.fat || ''}" step="0.1">`;
+            // Diff (수정 중에는 의미 없으므로 '-')
+            tr.cells[3].innerText = '-';
+            // Action Buttons
+            tr.cells[4].innerHTML = `
+                <button data-action="save-inline" data-date="${date}" class="inline-btn" title="저장">💾</button>
+                <button data-action="cancel-inline" class="inline-btn" title="취소">❌</button>
+            `;
+        },
+
+        saveInlineEdit: function(date) {
+            const wInput = document.getElementById(`inline-weight-${date}`);
+            const fInput = document.getElementById(`inline-fat-${date}`);
+            
+            if(!wInput) return;
+            
+            const newWeight = parseFloat(wInput.value);
+            const newFat = parseFloat(fInput.value);
+            
+            if (isNaN(newWeight) || newWeight < CONFIG.LIMITS.MIN_WEIGHT || newWeight > CONFIG.LIMITS.MAX_WEIGHT) {
+                return showToast(`유효한 체중을 입력해주세요 (${CONFIG.LIMITS.MIN_WEIGHT}~${CONFIG.LIMITS.MAX_WEIGHT}kg).`);
+            }
+            if (!isNaN(newFat) && (newFat < CONFIG.LIMITS.MIN_FAT || newFat > CONFIG.LIMITS.MAX_FAT)) {
+                 return showToast(`유효한 체지방률을 입력해주세요 (${CONFIG.LIMITS.MIN_FAT}~${CONFIG.LIMITS.MAX_FAT}%).`);
+            }
+
+            const recordIndex = AppState.records.findIndex(r => r.date === date);
+            if(recordIndex >= 0) {
+                AppState.records[recordIndex].weight = MathUtil.round(newWeight);
+                if(!isNaN(newFat)) AppState.records[recordIndex].fat = MathUtil.round(newFat);
+                else delete AppState.records[recordIndex].fat; 
+                
+                AppState.state.isDirty = true;
+                debouncedSaveRecords();
+                updateUI();
+                showToast('수정되었습니다.');
+            }
+        },
+
+        cancelInlineEdit: function() {
+            // 단순히 리렌더링하여 복구
+            updateUI(); 
+        }
     };
 
     window.onload = init;
