@@ -586,13 +586,22 @@
         reader.readAsText(file);
     }
 
-    function exportCSV() {
+	function exportCSV() {
         if (AppState.records.length === 0) return showToast('내보낼 데이터가 없습니다.');
         let csvContent = "\uFEFFDate,Weight,BodyFat\n";
         AppState.records.forEach(row => {
             csvContent += `${row.date},${row.weight},${row.fat || ''}\n`;
         });
-        downloadFile(csvContent, "diet_records.csv", "text/csv;charset=utf-8");
+
+        // [수정] JSON 백업과 동일한 파일명 형식 적용 (YYMMDD)
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        
+        const fileName = `${yy}${mm}${dd}_Diet_Challenge_Backup.csv`;
+
+        downloadFile(csvContent, fileName, "text/csv;charset=utf-8");
     }
 
 	function exportJSON() {
