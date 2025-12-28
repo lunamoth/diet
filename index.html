@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.62)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.63)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -1040,10 +1040,10 @@
         <h3>📑 상세 리포트 & 기록</h3>
         <div class="filter-row">
             <div class="filter-group">
-                <button class="filter-btn active" id="tab-btn-monthly" onclick="App.switchTab('tab-monthly')">월별 결산</button>
+                <button class="filter-btn active" id="tab-btn-history" onclick="App.switchTab('tab-history')">전체 기록</button>
+                <button class="filter-btn" id="tab-btn-monthly" onclick="App.switchTab('tab-monthly')">월별 결산</button>
                 <button class="filter-btn" id="tab-btn-weekly" onclick="App.switchTab('tab-weekly')">주별 결산</button>
                 <button class="filter-btn" id="tab-btn-milestone" onclick="App.switchTab('tab-milestone')">마일스톤</button>
-                <button class="filter-btn" id="tab-btn-history" onclick="App.switchTab('tab-history')">전체 기록</button>
                 <!-- [NEW] 새로운 탭 버튼 -->
                 <button class="filter-btn" id="tab-btn-zone" onclick="App.switchTab('tab-zone')">구간별 체류</button>
                 <button class="filter-btn" id="tab-btn-sprint" onclick="App.switchTab('tab-sprint')">스프린트</button>
@@ -1055,7 +1055,7 @@
         </div>
 
         <!-- 탭 내용 -->
-        <div id="tab-monthly" class="tab-content">
+		<div id="tab-monthly" class="tab-content" style="display:none;">
             <table class="data-table">
                 <thead><tr><th>월</th><th>시작</th><th>종료</th><th>변화량</th><th>평균</th></tr></thead>
                 <tbody id="monthlyTableBody"></tbody>
@@ -1074,7 +1074,7 @@
             </table>
         </div>
         <!-- Sticky Header 적용 및 이벤트 위임용 ID 추가 -->
-        <div id="tab-history" class="tab-content" style="display:none; max-height: 400px; overflow-y: auto;">
+        <div id="tab-history" class="tab-content" style="max-height: 1200px; overflow-y: auto;">
             <table class="data-table">
                 <thead><tr><th>날짜</th><th>체중</th><th>체지방</th><th>변화</th><th>관리</th></tr></thead>
                 <tbody id="historyList"></tbody>
