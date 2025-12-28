@@ -128,12 +128,12 @@
             return Math.round((num + Number.EPSILON) * factor) / factor;
         },
         diff: (a, b) => {
-             // (a - b)를 정밀하게 수행
-             return MathUtil.round(((a * 100) - (b * 100)) / 100);
+             // (a - b)를 정밀하게 수행 (단순화하여 오차 감소)
+             return MathUtil.round(a - b);
         },
         add: (a, b) => {
-             // (a + b)를 정밀하게 수행
-             return MathUtil.round(((a * 100) + (b * 100)) / 100);
+             // (a + b)를 정밀하게 수행 (단순화하여 오차 감소)
+             return MathUtil.round(a + b);
         },
         clamp: (num, min, max) => Math.min(Math.max(num, min), max),
         stdDev: (arr) => {
@@ -245,7 +245,7 @@
             'bmiProgressBarFill', 'bmiProgressEmoji', 'bmiProgressText', 'bmiLabelLeft', 'bmiLabelRight',
             'rate7Days', 'rate30Days', 'weeklyCompareDisplay', 'heatmapGrid', 'chartBackdrop',
             'monthlyTableBody', 'weeklyTableBody', 'milestoneTableBody', 'historyList',
-            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 'tab-zone', 'tab-sprint', 'tab-grades', 'tab-top5', 'tab-monthly-rate',
+            'tab-monthly', 'tab-weekly', 'tab-milestone', 'tab-history', 'tab-zone', 'tab-sprint', 'tab-grades', 'tab-btn-top5', 'tab-btn-monthly-rate',
             'btn-1m', 'btn-3m', 'btn-6m', 'btn-1y', 'btn-all', 
             'tab-btn-monthly', 'tab-btn-weekly', 'tab-btn-milestone', 'tab-btn-history', 'tab-btn-zone', 'tab-btn-sprint', 'tab-btn-grades', 'tab-btn-top5', 'tab-btn-monthly-rate',
             'recordBtn',
@@ -255,7 +255,8 @@
         ids.forEach(id => AppState.getEl(id));
         
         const dateInput = AppState.getEl('dateInput');
-        if (dateInput) dateInput.valueAsDate = new Date();
+        // [Fixed] UTC 기반 valueAsDate 대신 로컬 시간 기준의 문자열 값 설정 (날짜 밀림 방지)
+        if (dateInput) dateInput.value = DateUtil.format(new Date());
         
         try {
             AppState.records = JSON.parse(localStorage.getItem(AppState.STORAGE_KEY)) || [];
@@ -321,15 +322,14 @@
 
     // --- 3. 기본 기능 (디바운스 적용 및 로컬 스토리지 최적화) ---
     const debouncedSaveRecords = debounce(() => {
-        if (AppState.state.isDirty) {
-            localStorage.setItem(AppState.STORAGE_KEY, JSON.stringify(AppState.records));
-        }
+        // [Bug Fix] updateUI가 실행되면서 isDirty를 false로 바꿔버려, 정작 저장 시점엔 저장이 안되는 문제 해결
+        // 조건문 제거: 함수가 호출되었다는 것 자체가 저장이 필요하다는 의미임
+        localStorage.setItem(AppState.STORAGE_KEY, JSON.stringify(AppState.records));
     }, 500);
 
     const debouncedSaveSettings = debounce(() => {
-        if (AppState.state.isDirty) {
-            localStorage.setItem(AppState.SETTINGS_KEY, JSON.stringify(AppState.settings));
-        }
+        // [Bug Fix] 위와 동일한 이유로 조건문 제거
+        localStorage.setItem(AppState.SETTINGS_KEY, JSON.stringify(AppState.settings));
     }, 500);
 
     function showToast(message) {
@@ -441,7 +441,8 @@
         if (lastDateStr) {
             AppState.getEl('dateInput').value = DateUtil.addDays(lastDateStr, 1);
         } else {
-            AppState.getEl('dateInput').valueAsDate = new Date();
+            // [Fixed] UTC 기반 valueAsDate 대신 로컬 시간 기준의 문자열 값 설정 (날짜 밀림 방지)
+            AppState.getEl('dateInput').value = DateUtil.format(new Date());
         }
         AppState.getEl('weightInput').value = '';
         AppState.getEl('fatInput').value = '';
@@ -1365,7 +1366,8 @@
         }
 
         const now = new Date();
-        const thisMonthKey = now.toISOString().slice(0, 7);
+        // [Fixed] UTC toISOString 대신 로컬 시간 기준 문자열 사용 (월별 통계 오류 방지)
+        const thisMonthKey = DateUtil.format(now).slice(0, 7);
         const thisMonthRecs = AppState.records.filter(r => r.date.startsWith(thisMonthKey));
         if(thisMonthRecs.length > 3) {
             const startW = thisMonthRecs[0].weight;
@@ -1786,9 +1788,10 @@
     function calculateMonthlyComparison() {
         if(AppState.records.length === 0) return '-';
         const now = new Date();
-        const thisMonthKey = now.toISOString().slice(0, 7);
+        // [Fixed] UTC toISOString 대신 로컬 시간 기준 문자열 사용 (월별 통계 오류 방지)
+        const thisMonthKey = DateUtil.format(now).slice(0, 7);
         const lastMonthDate = new Date(); lastMonthDate.setMonth(now.getMonth()-1);
-        const lastMonthKey = lastMonthDate.toISOString().slice(0, 7);
+        const lastMonthKey = DateUtil.format(lastMonthDate).slice(0, 7);
 
         const thisMonthRecs = AppState.records.filter(r => r.date.startsWith(thisMonthKey));
         const lastMonthRecs = AppState.records.filter(r => r.date.startsWith(lastMonthKey));
