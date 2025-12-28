@@ -125,15 +125,15 @@
         round: (num, decimals = 1) => {
             if (num === null || num === undefined) return 0;
             const factor = Math.pow(10, decimals);
-            return Math.round(num * factor) / factor;
+            return Math.round((num + Number.EPSILON) * factor) / factor;
         },
         diff: (a, b) => {
              // (a - b)를 정밀하게 수행 (단순화하여 오차 감소)
-             return a - b;
+             return MathUtil.round(a - b);
         },
         add: (a, b) => {
              // (a + b)를 정밀하게 수행 (단순화하여 오차 감소)
-             return a + b;
+             return MathUtil.round(a + b);
         },
         clamp: (num, min, max) => Math.min(Math.max(num, min), max),
         stdDev: (arr) => {
@@ -593,22 +593,14 @@
     }
 
 	function exportJSON() {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const d = String(now.getDate()).padStart(2, '0');
-        const h = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-        const s = String(now.getSeconds()).padStart(2, '0');
-        const localDateStr = `${y}-${m}-${d}T${h}:${min}:${s}`;
-
         const data = {
             settings: AppState.settings,
             records: AppState.records,
-            exportDate: localDateStr
+            exportDate: new Date().toISOString()
         };
 
         // [수정] 날짜 포맷팅 로직 추가 (YYMMDD)
+        const now = new Date();
         const yy = String(now.getFullYear()).slice(-2); // 2025 -> 25
         const mm = String(now.getMonth() + 1).padStart(2, '0'); // 1 -> 01
         const dd = String(now.getDate()).padStart(2, '0'); // 5 -> 05
