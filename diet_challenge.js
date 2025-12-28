@@ -515,8 +515,11 @@
                     AppState.records = data.records.filter(r => r.date && !isNaN(r.weight));
                     if(data.settings) AppState.settings = data.settings;
                     AppState.state.isDirty = true;
-                    debouncedSaveRecords();
-                    debouncedSaveSettings();
+                    
+                    // FIX: 대량 데이터 복원 시 즉시 저장 (새로고침 시 유실 방지)
+                    localStorage.setItem(AppState.STORAGE_KEY, JSON.stringify(AppState.records));
+                    localStorage.setItem(AppState.SETTINGS_KEY, JSON.stringify(AppState.settings));
+                    
                     updateUI();
                     showToast('데이터(JSON) 복원 완료');
                 } else {
@@ -570,7 +573,10 @@
             }
             AppState.records.sort((a, b) => new Date(a.date) - new Date(b.date));
             AppState.state.isDirty = true;
-            debouncedSaveRecords();
+            
+            // FIX: 대량 데이터 복원 시 즉시 저장 (새로고침 시 유실 방지)
+            localStorage.setItem(AppState.STORAGE_KEY, JSON.stringify(AppState.records));
+            
             updateUI();
             showToast(`${count}건의 데이터(CSV)를 불러왔습니다.`);
         };
