@@ -43,15 +43,15 @@
 
 이 프로젝트는 별도의 백엔드 서버나 빌드 과정이 필요 없는 **정적 웹 사이트**입니다.
 
-### 방법 1. 로컬 실행
+### 방법 1. 깃허브 페이지 실행
+https://lunamoth.github.io/diet/ 에서 바로 즉시 웹에서 사용할 수 있습니다.
+
+### 방법 2. 로컬 실행
 1. 이 저장소를 클론(Clone)하거나 ZIP으로 다운로드합니다.
    ```bash
    git clone https://github.com/your-username/diet-challenge.git
    ```
 2. 폴더 내의 `index.html` 파일을 더블 클릭하여 웹 브라우저(Chrome, Edge, Safari 등)에서 엽니다.
-
-### 방법 2. GitHub Pages 배포
-이 저장소를 포크(Fork)한 후 GitHub Pages 기능을 활성화하면 즉시 웹에서 사용할 수 있습니다.
 
 ## 💻 기술 스택
 
