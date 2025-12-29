@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.67)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.68)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -749,6 +749,13 @@
             <div class="stat-label">대사 적응도</div>
             <div class="stat-sub" style="font-size:0.65rem;">(실제 vs 예상 감량)</div>
         </div>
+        <!-- === [NEW] v3.0.67 추가 지표 === -->
+        <div class="stat-card">
+            <span class="stat-icon">📊</span>
+            <div class="stat-value" id="cvDisplay">-</div>
+            <div class="stat-label">변동 계수 (CV)</div>
+            <div class="stat-sub" style="font-size:0.65rem;">(낮을수록 안정적)</div>
+        </div>
     </div>
     
     <!-- 메인 차트 영역 -->
@@ -922,6 +929,22 @@
                  <canvas id="seasonalSpiralChart"></canvas>
              </div>
         </div>
+
+        <!-- === [NEW] v3.0.67 추가 차트 === -->
+        <div class="card">
+            <h3>🛂 관리도 (Control Chart) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="controlChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">통계적 관리 상한/하한선 이탈 여부 확인</p>
+        </div>
+        <div class="card">
+            <h3>🎻 월별 체중 분포 (Violin/Strip) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="violinChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">월별 체중 밀집도 시각화</p>
+        </div>
     </div>
 
     <!-- 상세 분석 영역 -->
@@ -953,6 +976,12 @@
                 <canvas id="histogramChart"></canvas>
             </div>
         </div>
+    </div>
+    
+    <!-- === [NEW] 깃허브 스타일 캘린더 히트맵 === -->
+    <div class="card">
+        <h3>🗓️ 연간 캘린더 히트맵 (Github Style)</h3>
+        <div id="githubCalendarChart" style="padding: 10px 0;"></div>
     </div>
 
     <!-- 히트맵 -->
@@ -1034,6 +1063,21 @@
                 <table class="data-table">
                     <thead><tr><th>순위</th><th>최고의 달 (감량)</th><th>최악의 달 (증량)</th></tr></thead>
                     <tbody id="bestWorstMonthTable"><tr><td colspan="3">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <!-- [NEW] v3.0.67 추가 테이블 -->
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">🧱 저항선/지지선 분석</h4>
+                <table class="data-table">
+                    <thead><tr><th>유형</th><th>구간</th><th>빈도</th></tr></thead>
+                    <tbody id="resistanceTableBody"><tr><td colspan="3">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">📆 요일별 증량 확률</h4>
+                <table class="data-table">
+                    <thead><tr><th>요일</th><th>증량 확률 (%)</th><th>위험도</th></tr></thead>
+                    <tbody id="weekdayProbTableBody"><tr><td colspan="3">분석 중...</td></tr></tbody>
                 </table>
             </div>
         </div>
