@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.65)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.67)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -94,8 +94,9 @@
             position: relative;
             transition: background 0.3s;
         }
+        /* [수정] 헤더 다크모드 배경색 - 훨씬 어두운 톤으로 변경하여 눈부심 방지 */
         body.dark-mode header {
-            background: linear-gradient(135deg, #2e7d32, #1565c0);
+            background: linear-gradient(135deg, #1b5e20, #0d47a1); /* Deep Green to Deep Blue */
         }
 
         h1 { margin: 0; font-size: 2.2rem; }
@@ -123,6 +124,16 @@
             color: var(--text); 
         }
         body.dark-mode .card h3 { border-bottom-color: #333; }
+
+        /* [추가] 정체기 돌파 도우미 전용 스타일 (다크모드 지원을 위해 인라인 스타일 제거 후 클래스화) */
+        .plateau-card {
+            background: linear-gradient(to right, #fdfbfb, #ebedee);
+            border-left: 5px solid var(--accent);
+        }
+        body.dark-mode .plateau-card {
+            background: linear-gradient(to right, #2a2a2a, #1a1a1a); /* 다크모드 그라데이션 */
+            border-left: 5px solid var(--accent);
+        }
 
         /* 입력 폼 */
         .input-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; transition: background-color 0.5s; }
@@ -479,7 +490,8 @@
     </div>
 
     <!-- 정체기 돌파 도우미 (신규 추가) -->
-    <div class="card" style="background: linear-gradient(to right, #fdfbfb, #ebedee); border-left: 5px solid var(--accent);">
+    <!-- [수정] 다크모드 지원을 위해 inline style 제거 후 class 추가 -->
+    <div class="card plateau-card">
         <h3 class="text-accent">🤖 정체기 돌파 도우미</h3>
         <div id="plateauHelperText" style="font-size: 0.95rem;">
             데이터 분석 중...
@@ -1142,6 +1154,48 @@
     <!-- Toast Message Container -->
     <div id="toast-container" class="toast-container"></div>
 </div>
+
+<!-- ================= TEMPLATES FOR JS ================= -->
+
+<!-- 1. History Row Template -->
+<template id="template-history-row">
+    <tr>
+        <td class="history-date"></td>
+        <td class="history-weight"></td>
+        <td class="history-fat"></td>
+        <td class="history-diff"></td>
+        <td class="history-action">
+            <button data-action="edit" class="btn-edit" style="border:none;background:none;cursor:pointer;" title="수정">✏️</button>
+            <button data-action="delete" class="btn-delete" style="border:none;background:none;cursor:pointer;" title="삭제">🗑️</button>
+        </td>
+    </tr>
+</template>
+
+<!-- 2. General Table Row Template (Monthly, Weekly, etc.) -->
+<template id="template-general-row">
+    <tr></tr>
+</template>
+
+<!-- 3. Badge Item Template -->
+<template id="template-badge-item">
+    <div class="badge-item">
+        <span class="badge-icon"></span>
+        <span class="badge-name"></span>
+    </div>
+</template>
+
+<!-- 4. Heatmap Cell Template -->
+<template id="template-heatmap-cell">
+    <div class="heatmap-cell"></div>
+</template>
+
+<!-- 5. Calendar Cell Template -->
+<template id="template-calendar-cell">
+    <div>
+        <div class="calendar-date"></div>
+        <div class="calendar-val" style="font-weight:bold;"></div>
+    </div>
+</template>
 
 <script src="diet_challenge.js"></script>
 </body>
