@@ -1502,7 +1502,7 @@
              if(recDurations.length > 0) {
                  const avgRecDays = recDurations.reduce((a,b)=>a+b,0) / recDurations.length;
                  htmlLines.push(`<li class="insight-item"><span class="insight-label">🍔 치팅 회복력:</span>
-                    "회원님은 폭식(급격한 증량) 후 원상 복구하는데 평균 <strong>${avgRecDays.toFixed(1)}일</strong>이 걸립니다."</li>`);
+                    "폭식(급격한 증량) 후 원상 복구하는데 평균 <strong>${avgRecDays.toFixed(1)}일</strong>이 걸립니다."</li>`);
              }
         }
 
@@ -1513,7 +1513,7 @@
              const diffStdDev = MathUtil.stdDev(diffs);
              let type = diffStdDev > 0.5 ? "🐰 토끼형 (급빠급찐)" : "🐢 거북이형 (꾸준함)";
              htmlLines.push(`<li class="insight-item"><span class="insight-label">🐢 성향 분석:</span>
-                "체중 변동폭 분석 결과, 회원님은 <strong>${type}</strong> 다이어터입니다."</li>`);
+                "체중 변동폭 분석 결과, <strong>${type}</strong> 다이어터입니다."</li>`);
         }
 
         AppState.getEl('advancedAnalysisList').innerHTML = htmlLines.join('');
