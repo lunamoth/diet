@@ -393,7 +393,6 @@
         const fat = parseFloat(AppState.getEl('fatInput').value);
 
         if (!date) return showToast('날짜를 입력해주세요.');
-        if (DateUtil.isFuture(date)) return showToast('미래 날짜는 입력할 수 없습니다.');
         
         if (isNaN(weight) || weight < CONFIG.LIMITS.MIN_WEIGHT || weight > CONFIG.LIMITS.MAX_WEIGHT) {
             return showToast(`유효한 체중을 입력해주세요 (${CONFIG.LIMITS.MIN_WEIGHT}~${CONFIG.LIMITS.MAX_WEIGHT}kg).`);
