@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.71)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.73)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -756,6 +756,32 @@
             <div class="stat-label">변동 계수 (CV)</div>
             <div class="stat-sub" style="font-size:0.65rem;">(낮을수록 안정적)</div>
         </div>
+
+        <!-- === [NEW] v3.0.71 추가 지표 === -->
+        <div class="stat-card">
+            <span class="stat-icon">🔮</span>
+            <div class="stat-value" id="trendDeviationDisplay">-</div>
+            <div class="stat-label">추세 이탈도</div>
+            <div class="stat-sub">7일 이동평균 대비</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🍖</span>
+            <div class="stat-value" id="lbmRetentionDisplay">-</div>
+            <div class="stat-label">제지방 보호율</div>
+            <div class="stat-sub">지방 중심 감량</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">🧂</span>
+            <div class="stat-value" id="sodiumWarningDisplay">-</div>
+            <div class="stat-label">나트륨/수분 경고</div>
+            <div class="stat-sub">체중급등/체지방유지</div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-icon">📊</span>
+            <div class="stat-value" id="cvStatusDisplay">-</div>
+            <div class="stat-label">변동성 상태</div>
+            <div class="stat-sub">안정성 평가</div>
+        </div>
     </div>
     
     <!-- 메인 차트 영역 -->
@@ -945,6 +971,36 @@
             </div>
             <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">월별 체중 밀집도 시각화</p>
         </div>
+
+        <!-- === [NEW] v3.0.71 추가 차트 === -->
+        <div class="card">
+            <h3>🛤️ 목표 터널 차트 (Goal Tunnel) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="goalTunnelChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">터널 안에서 잘 가고 있는지 확인하세요.</p>
+        </div>
+        <div class="card">
+            <h3>📉 드로우다운 (Drawdown) 차트 <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="drawdownChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">역대 최고 체중 대비 하락률(%)</p>
+        </div>
+        <div class="card">
+            <h3>🥩 근육 vs 지방 전쟁 (LBM vs Fat Area) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container">
+                <canvas id="lbmFatAreaChart"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">체중 100% 기준 비율 변화 (100% Stacked Area)</p>
+        </div>
+        <div class="card">
+            <h3>🐌 감량 속도계 (Speedometer) <button class="expand-btn" onclick="App.toggleChartExpand(this)" title="확대/축소">⛶</button></h3>
+            <div class="mini-chart-container" style="display:flex; justify-content:center; align-items:flex-end;">
+                <canvas id="speedometerChart" style="max-height:100%; max-width:100%;"></canvas>
+            </div>
+            <p style="font-size: 0.75rem; text-align: center; color: var(--text-light);">주간 감량 속도 상태</p>
+        </div>
     </div>
 
     <!-- 상세 분석 영역 -->
@@ -1078,6 +1134,21 @@
                 <table class="data-table">
                     <thead><tr><th>요일</th><th>증량 확률 (%)</th><th>위험도</th></tr></thead>
                     <tbody id="weekdayProbTableBody"><tr><td colspan="3">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <!-- [NEW] v3.0.71 추가 테이블 -->
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">🧱 '벽' 분석 (The Wall)</h4>
+                <table class="data-table">
+                    <thead><tr><th>순위</th><th>체중 구간</th><th>체류 일수</th></tr></thead>
+                    <tbody id="wallTableBody"><tr><td colspan="3">분석 중...</td></tr></tbody>
+                </table>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 10px 0; font-size: 1rem; color: var(--text-light);">🗓️ 월별 '순수 지방' 감량 추정표</h4>
+                <table class="data-table">
+                    <thead><tr><th>월</th><th>순수 지방 감량</th><th>근육 변화</th></tr></thead>
+                    <tbody id="monthlyFatLossTableBody"><tr><td colspan="3">분석 중...</td></tr></tbody>
                 </table>
             </div>
         </div>
