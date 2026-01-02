@@ -15,7 +15,7 @@
         // CSS 변수명과 매핑되는 차트 색상값 (DomUtil에서 실제 값을 읽어옴)
         COLORS: {
             GAIN: 'var(--heatmap-gain)', // #ffcdd2
-            LOSS: 'var(--secondary)',    // #bbdefb (실제값은 theme에 따라 다름)
+            LOSS: 'var(--secondary)',    // #bbdefb
             WEEKEND: '#F44336', 
             WEEKDAY: '#4CAF50'
         },
@@ -39,6 +39,36 @@
             { name: "라이트플라이급", min: 47.6 },
             { name: "미니멈급", min: 0 }
         ],
+        // [Refactor] 하드코딩된 문자열 상수화
+        MESSAGES: {
+            ANALYSIS: {
+                LOSS: "어제보다 {diff}kg 빠졌습니다! 이대로 쭉 가봅시다! 🔥",
+                GAIN: "약간 증량({diff}kg)했지만 괜찮습니다. 장기적인 추세가 중요합니다.",
+                MAINTAIN: "체중 유지 중입니다. 꾸준함이 답입니다.",
+                DATA_Need: "데이터가 2개 이상 쌓이면 분석을 시작합니다. 화이팅!"
+            },
+            PERSONA: {
+                ROLLER: "🎢 롤러코스터형 (변동이 큽니다)",
+                TURTLE: "🐢 꾸준한 거북이형 (안정적입니다)",
+                BALANCE: "🏃 밸런스형 (적당한 변동)",
+                WEEKEND: "🍻 주말 폭식형 (월요일 급증 주의)",
+                RABBIT: "🐰 토끼형 (급빠급찐)"
+            },
+            TIPS: [
+                "단백질 섭취량을 체중 1kg당 1.5g 이상으로 늘려보세요.",
+                "하루 물 섭취량을 500ml 더 늘려보세요.",
+                "운동 강도를 높이거나 루틴을 완전히 바꿔보세요.",
+                "치팅밀이나 간식을 완전히 끊어보세요.",
+                "수면 시간을 1시간 늘려보세요.",
+                "간헐적 단식 시간을 2시간 더 늘려보세요."
+            ],
+            PLATEAU: {
+                DETECTED: "🛑 <strong>정체기 감지!</strong> 최근 2주간 변화가 {diff}kg 입니다.<br>💡 팁: {tip}",
+                GOOD: "📉 현재 감량 흐름이 좋습니다! 이대로 유지하세요!",
+                WARN: "📈 약간의 증량이 있지만, 일시적인 현상일 수 있습니다.",
+                NEED_DATA: "데이터가 충분하지 않습니다. 7일 이상 기록해주세요."
+            }
+        },
         // 뱃지 정의 (상수 관리)
         BADGES: [
             { id: 'start', name: '시작이 반', icon: '🐣', desc: '첫 기록을 남겼습니다.' },
@@ -177,7 +207,6 @@
             else if (colorType === 'accent') el.classList.add('text-accent');
             else if (colorType === 'default') el.classList.add('text-default');
         },
-        // [New] 템플릿 활용 헬퍼
         getTemplate: (id) => document.getElementById(id),
         clearAndAppend: (element, fragment) => {
             if (!element) return;
@@ -204,7 +233,7 @@
         chartFilterMode: 'ALL',
         customStart: null,
         customEnd: null,
-        // charts 객체는 차트 인스턴스 추적용이지만 Chart.getChart(ctx)를 우선 사용
+        // charts 객체는 차트 인스턴스 추적용
         charts: {}, 
         _elCache: {},
         getEl: function(id) {
@@ -294,13 +323,11 @@
             });
         }
         
-        // [Optimized] 이벤트 위임: 캘린더 (버튼/셀 클릭은 현재 inline handler 사용 중이나 컨테이너 보호)
-        // 기존 inline handler (App.changeCalendarMonth 등)는 window.App으로 노출되므로 유지.
-        
         // [Optimized] 이벤트 위임: 뱃지
         const badgeGrid = AppState.getEl('badgeGrid');
         if (badgeGrid) {
             badgeGrid.addEventListener('click', (e) => {
+                const item = e.target.closest('.badge-item');
                 // 클릭 이벤트 처리 로직이 필요하다면 여기에 추가 (현재는 툴팁이 title 속성으로 처리됨)
             });
         }
@@ -311,7 +338,7 @@
         if (wInput) wInput.addEventListener('keyup', handleEnter);
         if (fInput) fInput.addEventListener('keyup', handleEnter);
 
-        // 이벤트 위임 (히스토리 테이블)
+        // [Optimized] 이벤트 위임 (히스토리 테이블 및 기타 동적 요소)
         const histList = AppState.getEl('historyList');
         if (histList) {
             histList.addEventListener('click', (e) => {
@@ -319,6 +346,7 @@
                 if (!btn) return;
                 const action = btn.dataset.action;
                 const date = btn.dataset.date;
+                
                 if (action === 'edit') App.enableInlineEdit(date);
                 else if (action === 'delete') deleteRecord(date);
                 else if (action === 'save-inline') App.saveInlineEdit(date);
@@ -361,7 +389,6 @@
     function toggleDarkMode() {
         document.body.classList.toggle('dark-mode');
         localStorage.setItem('diet_pro_dark_mode', document.body.classList.contains('dark-mode'));
-        // 차트 파괴 대신 업데이트로 깜빡임 방지 (updateUI 내부에서 처리)
         updateUI(); 
     }
 
@@ -464,7 +491,6 @@
     }
 
     function editRecord(date) {
-        // 기존 상단 폼 수정용 (유지)
         const record = AppState.records.find(r => r.date === date);
         if (record) {
             AppState.getEl('dateInput').value = record.date;
@@ -513,7 +539,6 @@
                     AppState.records = data.records.filter(r => r.date && !isNaN(r.weight));
                     if(data.settings) AppState.settings = data.settings;
                     
-                    // [Fix] 즉시 정렬
                     AppState.records.sort((a, b) => new Date(a.date) - new Date(b.date));
                     AppState.state.isDirty = true;
                     
@@ -570,7 +595,6 @@
                 }
                 csvRegex.lastIndex = 0;
             }
-            // [Fix] 즉시 정렬
             AppState.records.sort((a, b) => new Date(a.date) - new Date(b.date));
             AppState.state.isDirty = true;
             
@@ -634,7 +658,7 @@
         
         renderStats(s);
         renderNewStats(s); 
-        renderAnalysisText();
+        renderAnalysisText(s);
         renderAdvancedText(s); 
         renderPlateauHelper(s); 
         renderPeriodComparison(); 
@@ -642,7 +666,6 @@
         renderExtendedStats(); 
         renderNewTables(); 
         
-        // --- [NEW] 새로운 테이블 렌더링 호출 ---
         renderResistanceTable();
         renderWeekdayProbTable();
 
@@ -672,7 +695,6 @@
         updateMacdChart(colors);
         updateSeasonalSpiralChart(colors);
 
-        // --- [NEW] 새로운 차트 호출 ---
         updateControlChart(colors);
         updateViolinChart(colors);
         updateGithubStyleCalendar();
@@ -683,7 +705,7 @@
         renderBadges(s);
     }
 
-    // --- 5. 분석 계산 로직 (기존 유지) ---
+    // --- 5. 분석 계산 로직 (Refactored to minimize redundancy) ---
     function analyzeRecords(records) {
         if (!records || records.length === 0) return {};
         
@@ -721,7 +743,6 @@
         const minRec = records.find(r => r.weight === min) || {};
         const stdDev = MathUtil.stdDev(weights);
         
-        // --- [NEW] 변동 계수 (CV) 계산 ---
         const mean = MathUtil.mean(weights);
         const cv = mean !== 0 ? (stdDev / mean) * 100 : 0;
 
@@ -745,6 +766,81 @@
             if(curPlateau > maxPlateau) maxPlateau = curPlateau;
         }
 
+        // [New] Integrated helper calculations to avoid redundancy
+        const totalLost = MathUtil.diff(AppState.settings.startWeight, current);
+        const hMeter = AppState.settings.height / 100;
+        const bmi = (current / (hMeter * hMeter)).toFixed(1);
+
+        // Rate calculations (formerly getRate)
+        const getRateVal = (days) => {
+             const now = new Date(); now.setHours(0,0,0,0);
+             const startTimestamp = now.getTime() - (days * 24 * 60 * 60 * 1000);
+             const rel = records.filter(r => DateUtil.parse(r.date).getTime() >= startTimestamp);
+             if(rel.length < 2) return "-";
+             const diff = MathUtil.diff(rel[rel.length-1].weight, rel[0].weight);
+             const d = DateUtil.daysBetween(DateUtil.parse(rel[0].date), DateUtil.parse(rel[rel.length-1].date));
+             if(d===0) return "-";
+             const g = ((diff/d)*1000).toFixed(0);
+             return `${g > 0 ? '+' : ''}${g}g / 일`;
+        };
+        const rate7 = getRateVal(7);
+        const rate30 = getRateVal(30);
+
+        // Weekly Comparison (formerly getWeeklyComparison)
+        const now = new Date(); now.setHours(0,0,0,0);
+        const t7 = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+        const t14 = now.getTime() - (14 * 24 * 60 * 60 * 1000);
+        const thisW = records.filter(r => DateUtil.parse(r.date).getTime() >= t7);
+        const lastW = records.filter(r => { const t = DateUtil.parse(r.date).getTime(); return t >= t14 && t < t7; });
+        let weeklyComp = "데이터 부족";
+        if(thisW.length > 0 && lastW.length > 0) {
+            const avgT = thisW.reduce((a,b)=>a+b.weight,0)/thisW.length;
+            const avgL = lastW.reduce((a,b)=>a+b.weight,0)/lastW.length;
+            const diff = MathUtil.diff(avgT, avgL);
+            const icon = diff < 0 ? '🔻' : (diff > 0 ? '🔺' : '➖');
+            weeklyComp = `${icon} ${Math.abs(diff)}kg`;
+        }
+
+        // Monthly Comparison (formerly calculateMonthlyComparison)
+        const thisMonthKey = DateUtil.format(now).slice(0, 7);
+        const lastMonthDate = new Date(); lastMonthDate.setMonth(now.getMonth()-1);
+        const lastMonthKey = DateUtil.format(lastMonthDate).slice(0, 7);
+        const thisMonthRecs = records.filter(r => r.date.startsWith(thisMonthKey));
+        const lastMonthRecs = records.filter(r => r.date.startsWith(lastMonthKey));
+        let monthlyComp = '-';
+        if(thisMonthRecs.length > 0 && lastMonthRecs.length > 0) {
+            const avgThis = thisMonthRecs.reduce((a,b)=>a+b.weight,0)/thisMonthRecs.length;
+            const avgLast = lastMonthRecs.reduce((a,b)=>a+b.weight,0)/lastMonthRecs.length;
+            const diff = MathUtil.diff(avgThis, avgLast);
+            monthlyComp = `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}kg`;
+        }
+        
+        // Weekly Avg (formerly calculateWeeklyAvg)
+        let weeklyAvgLoss = '-';
+        if(records.length >= 2) {
+             const weeks = {};
+             [...records].forEach(r => {
+                const d = DateUtil.parse(r.date);
+                const day = d.getDay();
+                const monday = new Date(d.setDate(d.getDate() - day + (day == 0 ? -6 : 1)));
+                monday.setHours(0,0,0,0);
+                const key = monday.getTime();
+                if(!weeks[key]) weeks[key] = [];
+                weeks[key].push(r.weight);
+             });
+             const weekKeys = Object.keys(weeks).sort();
+             if(weekKeys.length >= 2) {
+                 let totalL = 0, count = 0;
+                 for(let i=1; i<weekKeys.length; i++) {
+                     const prevAvg = weeks[weekKeys[i-1]].reduce((a,b)=>a+b,0)/weeks[weekKeys[i-1]].length;
+                     const currAvg = weeks[weekKeys[i]].reduce((a,b)=>a+b,0)/weeks[weekKeys[i]].length;
+                     totalL += (prevAvg - currAvg);
+                     count++;
+                 }
+                 if(count > 0) weeklyAvgLoss = (totalL / count).toFixed(2);
+             }
+        }
+
         return {
             current, min, max, maxStreak, lastRec, diffs,
             successRate: records.length > 1 ? Math.round((successCount / (records.length - 1)) * 100) : 0,
@@ -752,16 +848,18 @@
             maxGain: MathUtil.round(maxGain),
             maxDate: maxRec.date, minDate: minRec.date,
             stdDev: stdDev,
-            cv: cv, // [NEW] CV 추가
+            cv: cv,
             fatChange, lbmChange,
-            maxPlateau
+            maxPlateau,
+            // Enhanced stats
+            totalLost, bmi, rate7, rate30, weeklyComp, monthlyComp, weeklyAvgLoss
         };
     }
 
     // --- 6. 통계 렌더링 ---
     function renderStats(s) {
         const currentW = s.current !== undefined ? s.current : AppState.settings.startWeight;
-        const totalLost = MathUtil.diff(AppState.settings.startWeight, currentW);
+        const totalLost = s.totalLost !== undefined ? s.totalLost : 0;
         
         AppState.getEl('currentWeightDisplay').innerText = currentW.toFixed(1) + 'kg';
         const totalLostEl = AppState.getEl('totalLostDisplay');
@@ -790,8 +888,7 @@
         }
         AppState.getEl('remainingPercentDisplay').innerText = `${remainingPct.toFixed(1)}%`;
 
-        const hMeter = AppState.settings.height / 100;
-        const bmi = (currentW / (hMeter * hMeter)).toFixed(1);
+        const bmi = s.bmi || 0;
         
         let bmiLabel = '정상';
         if(bmi < CONFIG.BMI.UNDER) bmiLabel = '저체중';
@@ -816,13 +913,11 @@
         AppState.getEl('predictedDate').innerText = pred.avg;
         AppState.getEl('predictionRange').innerText = pred.range;
         
-        const r7 = getRate(7);
-        const r30 = getRate(30);
-        AppState.getEl('rate7Days').innerText = r7;
-        AppState.getEl('rate30Days').innerText = r30;
-        AppState.getEl('dashboardRate7Days').innerText = r7;
-        AppState.getEl('dashboardRate30Days').innerText = r30;
-        AppState.getEl('weeklyCompareDisplay').innerText = getWeeklyComparison();
+        AppState.getEl('rate7Days').innerText = s.rate7;
+        AppState.getEl('rate30Days').innerText = s.rate30;
+        AppState.getEl('dashboardRate7Days').innerText = s.rate7;
+        AppState.getEl('dashboardRate30Days').innerText = s.rate30;
+        AppState.getEl('weeklyCompareDisplay').innerText = s.weeklyComp;
 
         AppState.getEl('minMaxWeightDisplay').innerHTML = `
             <span class="text-danger">${(s.max||0).toFixed(1)}kg</span> / 
@@ -834,14 +929,12 @@
             <span class="text-danger">▲${(s.maxGain||0).toFixed(1)}</span>
         `;
 
-        AppState.getEl('weeklyAvgDisplay').innerText = calculateWeeklyAvg() + 'kg';
+        AppState.getEl('weeklyAvgDisplay').innerText = s.weeklyAvgLoss + 'kg';
         
-        const monComp = calculateMonthlyComparison();
         const mCompEl = AppState.getEl('monthCompareDisplay');
-        mCompEl.innerText = monComp;
-        DomUtil.setTextColor(mCompEl, monComp.includes('▼') ? 'primary' : (monComp.includes('▲') ? 'danger' : 'default'));
+        mCompEl.innerText = s.monthlyComp;
+        DomUtil.setTextColor(mCompEl, s.monthlyComp.includes('▼') ? 'primary' : (s.monthlyComp.includes('▲') ? 'danger' : 'default'));
 
-        // --- [NEW] 변동 계수(CV) 카드 렌더링 ---
         const cvEl = AppState.getEl('cvDisplay');
         if(cvEl) {
             const cv = s.cv || 0;
@@ -1190,19 +1283,20 @@
         }
 
         let htmlLines = [];
+        const { PERSONA } = CONFIG.MESSAGES;
 
         const stdDev = s.stdDev || 0;
         let persona = "";
-        if(stdDev > 0.8) persona = "🎢 롤러코스터형 (변동이 큽니다)";
-        else if(stdDev < 0.3) persona = "🐢 꾸준한 거북이형 (안정적입니다)";
-        else persona = "🏃 밸런스형 (적당한 변동)";
+        if(stdDev > 0.8) persona = PERSONA.ROLLER;
+        else if(stdDev < 0.3) persona = PERSONA.TURTLE;
+        else persona = PERSONA.BALANCE;
         
         let weekendSpike = 0;
         for(let i=1; i<AppState.records.length; i++) {
              const d = DateUtil.parse(AppState.records[i].date).getDay();
              if(d === 1 && AppState.records[i].weight > AppState.records[i-1].weight + 0.5) weekendSpike++;
         }
-        if(weekendSpike >= 3) persona = "🍻 주말 폭식형 (월요일 급증 주의)";
+        if(weekendSpike >= 3) persona = PERSONA.WEEKEND;
         
         htmlLines.push(`<li class="insight-item"><span class="insight-label">🕵️ 다이어트 성향:</span> 당신은 <strong>${persona}</strong>입니다.</li>`);
 
@@ -1464,32 +1558,24 @@
                 "약 28일 주기로 체중이 급증하는 패턴이 감지됩니다. 현재는 '황체기(붓기 증가)' 시기일 수 있으니 일시적 증량에 스트레스받지 마세요."</li>`);
         }
 
-        // --- [NEW] 새로운 분석 로직 추가 ---
-        // 1. 후시(Whoosh) 효과 예측
         if (maxPlateau > 10) {
              htmlLines.push(`<li class="insight-item text-primary"><span class="insight-label">⚠️ 후시(Whoosh) 효과 예측:</span>
                 "장기간 정체기가 지속되고 있습니다. 이는 지방세포가 수분을 머금고 버티는 현상일 수 있으며, 곧 급격한 수분 배출과 함께 체중이 뚝 떨어질(Whoosh) 가능성이 높습니다."</li>`);
         }
 
-        // 2. 추세 반전 패턴 (Simplified Head & Shoulders / Double Bottom)
         if (AppState.records.length > 20) {
             const recs = AppState.records.slice(-10);
             const mid = Math.floor(recs.length / 2);
-            // Low -> High -> Low (Head & Shoulders Top -> 하락 반전 신호)
             if (recs[0].weight < recs[mid].weight && recs[recs.length-1].weight < recs[mid].weight && recs[mid].weight > recs[0].weight + 1) {
                  htmlLines.push(`<li class="insight-item"><span class="insight-label">📉 추세 반전 감지:</span>
                     "최근 체중 패턴이 상승 후 하락세로 꺾이는 '헤드 앤 숄더' 패턴과 유사합니다. 증량 추세가 멈추고 다시 감량이 시작될 신호일 수 있습니다."</li>`);
             }
         }
 
-        // 3. 치팅 데이 회복력 분석
         if (recoveries.length > 2) {
-             const avgRecovery = recoveries.reduce((a,b) => a + (b.recovery >= b.spike ? b.recovery - b.spike : 7 - (b.spike - b.recovery)), 0) / recoveries.length; // Approximate day diff logic
-             // Note: The previous logic for `recoveries` stored day indexes, let's look at recovery duration directly.
-             // Re-calculating specific recovery duration for this insight:
              let recDurations = [];
              for(let i=1; i<AppState.records.length-1; i++) {
-                 if(AppState.records[i].weight >= AppState.records[i-1].weight + 1.0) { // Big spike
+                 if(AppState.records[i].weight >= AppState.records[i-1].weight + 1.0) { 
                      for(let j=i+1; j<AppState.records.length; j++) {
                          if(AppState.records[j].weight <= AppState.records[i-1].weight) {
                              recDurations.push(DateUtil.daysBetween(DateUtil.parse(AppState.records[i].date), DateUtil.parse(AppState.records[j].date)));
@@ -1505,12 +1591,11 @@
              }
         }
 
-        // 4. 거북이 vs 토끼 분석
         if (AppState.records.length > 30) {
              const diffs = [];
              for(let i=1; i<AppState.records.length; i++) diffs.push(Math.abs(AppState.records[i].weight - AppState.records[i-1].weight));
              const diffStdDev = MathUtil.stdDev(diffs);
-             let type = diffStdDev > 0.5 ? "🐰 토끼형 (급빠급찐)" : "🐢 거북이형 (꾸준함)";
+             let type = diffStdDev > 0.5 ? PERSONA.RABBIT : PERSONA.TURTLE;
              htmlLines.push(`<li class="insight-item"><span class="insight-label">🐢 성향 분석:</span>
                 "체중 변동폭 분석 결과, <strong>${type}</strong> 다이어터입니다."</li>`);
         }
@@ -1523,7 +1608,7 @@
         if (!phEl) return;
         const recent = AppState.records.slice(-14); 
         if (recent.length < 7) {
-            phEl.innerText = "데이터가 충분하지 않습니다. 7일 이상 기록해주세요.";
+            phEl.innerText = CONFIG.MESSAGES.PLATEAU.NEED_DATA;
             return;
         }
         
@@ -1534,21 +1619,14 @@
         
         let msg = "";
         if (diff < 0.5) {
-            const tips = [
-                "단백질 섭취량을 체중 1kg당 1.5g 이상으로 늘려보세요.",
-                "하루 물 섭취량을 500ml 더 늘려보세요.",
-                "운동 강도를 높이거나 루틴을 완전히 바꿔보세요.",
-                "치팅밀이나 간식을 완전히 끊어보세요.",
-                "수면 시간을 1시간 늘려보세요.",
-                "간헐적 단식 시간을 2시간 더 늘려보세요."
-            ];
+            const tips = CONFIG.MESSAGES.TIPS;
             const tip = tips[Math.floor(Math.random() * tips.length)];
-            msg = `🛑 <strong>정체기 감지!</strong> 최근 2주간 변화가 ${diff.toFixed(1)}kg 입니다.<br>💡 팁: ${tip}`;
+            msg = CONFIG.MESSAGES.PLATEAU.DETECTED.replace('{diff}', diff.toFixed(1)).replace('{tip}', tip);
         } else {
             const lastW = weights[weights.length-1];
             const firstW = weights[0];
-            if (lastW < firstW) msg = "📉 현재 감량 흐름이 좋습니다! 이대로 유지하세요!";
-            else msg = "📈 약간의 증량이 있지만, 일시적인 현상일 수 있습니다.";
+            if (lastW < firstW) msg = CONFIG.MESSAGES.PLATEAU.GOOD;
+            else msg = CONFIG.MESSAGES.PLATEAU.WARN;
         }
         phEl.innerHTML = msg;
     }
@@ -1630,17 +1708,6 @@
         });
         AppState.getEl('dailyWinRateTable').innerHTML = winRows.join('');
 
-        const zones = {};
-        for(let i=1; i<AppState.records.length; i++) {
-            const z = Math.floor(AppState.records[i].weight); // 1kg 단위로 변경 (기존 코드 흐름 유지하되 더 상세하게)
-            // Note: The previous logic used 10kg bands. Let's keep existing logic structure if present, or adapt.
-            // The existing code was: const z = Math.floor(r.weight / 10) * 10;
-            // But the insight logic used 1kg bands. Let's stick to the previous `renderExtendedStats` logic found in prompt or restore it.
-            // Wait, I am modifying `diet_challenge.js`. I should keep the existing logic exactly unless prompted to change.
-            // Ah, looking at the provided code in prompt: `const z = Math.floor(r.weight / 10) * 10;` was used in `renderExtendedStats`.
-        }
-        
-        // Re-implementing strictly based on existing code structure provided in prompt to be safe.
         const zones10 = {};
         AppState.records.forEach(r => {
             const z = Math.floor(r.weight / 10) * 10;
@@ -1771,19 +1838,19 @@
         `;
     }
     
-    function renderAnalysisText() {
+    function renderAnalysisText(s) {
         const txtEl = AppState.getEl('analysisText');
         if (AppState.records.length < 2) {
-            txtEl.innerText = "데이터가 2개 이상 쌓이면 분석을 시작합니다. 화이팅!";
+            txtEl.innerText = CONFIG.MESSAGES.ANALYSIS.DATA_Need;
             return;
         }
         const last = AppState.records[AppState.records.length-1];
         const prev = AppState.records[AppState.records.length-2];
         const diff = MathUtil.diff(last.weight, prev.weight);
         
-        if (diff < 0) txtEl.innerText = `어제보다 ${Math.abs(diff)}kg 빠졌습니다! 이대로 쭉 가봅시다! 🔥`;
-        else if (diff > 0) txtEl.innerText = `약간 증량(${diff}kg)했지만 괜찮습니다. 장기적인 추세가 중요합니다.`;
-        else txtEl.innerText = `체중 유지 중입니다. 꾸준함이 답입니다.`;
+        if (diff < 0) txtEl.innerText = CONFIG.MESSAGES.ANALYSIS.LOSS.replace('{diff}', Math.abs(diff));
+        else if (diff > 0) txtEl.innerText = CONFIG.MESSAGES.ANALYSIS.GAIN.replace('{diff}', diff);
+        else txtEl.innerText = CONFIG.MESSAGES.ANALYSIS.MAINTAIN;
     }
 
     function calculateScenarios(currentW) {
@@ -1817,101 +1884,6 @@
             avg: `${formatDate(dAvg)} (${daysLeftAvg}일 후)`,
             range: `최적 ${formatDate(dFast)} ~ 보수 ${formatDate(dSlow)}`
         };
-    }
-
-    function calculateWeeklyAvg() {
-        if(AppState.records.length < 2) return '-';
-        const sorted = [...AppState.records];
-        const weeks = {};
-        sorted.forEach(r => {
-            const d = DateUtil.parse(r.date);
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day == 0 ? -6 : 1);
-            const monday = new Date(d.setDate(diff));
-            monday.setHours(0,0,0,0);
-            const key = monday.getTime();
-            if(!weeks[key]) weeks[key] = [];
-            weeks[key].push(r.weight);
-        });
-        
-        const weekKeys = Object.keys(weeks).sort();
-        if(weekKeys.length < 2) return '-';
-
-        let totalLoss = 0;
-        let count = 0;
-        
-        for(let i=1; i<weekKeys.length; i++) {
-            const prevW = weeks[weekKeys[i-1]];
-            const currW = weeks[weekKeys[i]];
-            const prevAvg = prevW.reduce((a,b)=>a+b,0) / prevW.length;
-            const currAvg = currW.reduce((a,b)=>a+b,0) / currW.length;
-            totalLoss += (prevAvg - currAvg);
-            count++;
-        }
-        
-        if(count === 0) return '-';
-        return (totalLoss / count).toFixed(2);
-    }
-
-    function calculateMonthlyComparison() {
-        if(AppState.records.length === 0) return '-';
-        const now = new Date();
-        const thisMonthKey = DateUtil.format(now).slice(0, 7);
-        const lastMonthDate = new Date(); lastMonthDate.setMonth(now.getMonth()-1);
-        const lastMonthKey = DateUtil.format(lastMonthDate).slice(0, 7);
-
-        const thisMonthRecs = AppState.records.filter(r => r.date.startsWith(thisMonthKey));
-        const lastMonthRecs = AppState.records.filter(r => r.date.startsWith(lastMonthKey));
-
-        if(thisMonthRecs.length === 0 || lastMonthRecs.length === 0) return '-';
-
-        const avgThis = thisMonthRecs.reduce((a,b)=>a+b.weight,0)/thisMonthRecs.length;
-        const avgLast = lastMonthRecs.reduce((a,b)=>a+b.weight,0)/lastMonthRecs.length;
-        const diff = MathUtil.diff(avgThis, avgLast);
-        
-        return `${diff > 0 ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}kg`;
-    }
-
-    function getRate(d) {
-        const now = new Date();
-        now.setHours(0,0,0,0);
-        const startTimestamp = now.getTime() - (d * 24 * 60 * 60 * 1000);
-        
-        const rel = AppState.records.filter(r => {
-            const rd = DateUtil.parse(r.date);
-            return rd.getTime() >= startTimestamp;
-        });
-
-        if(rel.length < 2) return "-";
-        const diff = MathUtil.diff(rel[rel.length-1].weight, rel[0].weight);
-        const days = DateUtil.daysBetween(DateUtil.parse(rel[0].date), DateUtil.parse(rel[rel.length-1].date));
-        if(days===0) return "-";
-        const g = ((diff/days)*1000).toFixed(0);
-        return `${g > 0 ? '+' : ''}${g}g / 일`;
-    }
-
-    function getWeeklyComparison() {
-        const now = new Date(); now.setHours(0,0,0,0);
-        const t7 = now.getTime() - (7 * 24 * 60 * 60 * 1000);
-        const t14 = now.getTime() - (14 * 24 * 60 * 60 * 1000);
-        
-        const thisW = AppState.records.filter(r => {
-            const d = DateUtil.parse(r.date);
-            return d.getTime() >= t7;
-        });
-        const lastW = AppState.records.filter(r => { 
-            const d = DateUtil.parse(r.date);
-            return d.getTime() >= t14 && d.getTime() < t7; 
-        });
-        
-        if(thisW.length === 0 || lastW.length === 0) return "데이터 부족";
-        
-        const avgT = thisW.reduce((a,b)=>a+b.weight,0)/thisW.length;
-        const avgL = lastW.reduce((a,b)=>a+b.weight,0)/lastW.length;
-        const diff = MathUtil.diff(avgT, avgL);
-        
-        const icon = diff < 0 ? '🔻' : (diff > 0 ? '🔺' : '➖');
-        return `${icon} ${Math.abs(diff)}kg`;
     }
 
     // --- 7. 차트 그리기 함수들 ---
@@ -1971,6 +1943,12 @@
         const defaultOptions = {
             responsive: true,
             maintainAspectRatio: false,
+            // [Improvement] Chart Tooltip Readability
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
             scales: {
                 x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
                 y: { ticks: { color: colors.text }, grid: { color: colors.grid } }
@@ -1984,22 +1962,22 @@
         return { type, data, options: defaultOptions };
     }
 
-    // [Fix] 차트 인스턴스 관리 개선
+    // [Fix] 차트 인스턴스 중복 생성 방지 강화
     function updateChartHelper(key, ctx, config) {
-        let instance = Chart.getChart(ctx);
+        // 기존 인스턴스 정리
+        const existingInstance = Chart.getChart(ctx);
+        if (existingInstance) {
+            existingInstance.destroy();
+        }
         
-        if (instance && instance.config.type !== config.type) {
-            instance.destroy();
-            instance = null;
+        // 내부 캐시 확인 및 정리
+        if (AppState.charts[key]) {
+            AppState.charts[key].destroy();
+            delete AppState.charts[key];
         }
 
-        if (instance) {
-            instance.data = config.data;
-            instance.options = config.options;
-            instance.update();
-        } else {
-            AppState.charts[key] = new Chart(ctx, config);
-        }
+        // 새 차트 생성
+        AppState.charts[key] = new Chart(ctx, config);
     }
 
     function updateMainChart(colors) {
@@ -2104,12 +2082,6 @@
                 borderWidth: 1
             }
         ];
-
-        let instance = Chart.getChart(ctx);
-        if (instance && instance.data.datasets.length !== datasets.length) {
-            instance.destroy();
-            instance = null;
-        }
 
         const config = createChartConfig('line', { datasets }, {
             scales: {
@@ -3045,7 +3017,6 @@
     }
     
     function updateViolinChart(colors) {
-        // Simulating Violin Plot with Scatter Plot + Jitter (Strip Plot)
         if(AppState.records.length === 0) return;
         
         const scatterData = [];
@@ -3053,44 +3024,23 @@
         AppState.records.forEach(r => {
              const d = DateUtil.parse(r.date);
              const monthStr = DateUtil.format(d).substring(0, 7); // YYYY-MM
-             // Create a deterministic jitter based on date to spread points
              const jitter = (d.getDate() % 10 - 5) / 30; 
              
              scatterData.push({
                  x: monthStr, 
                  y: r.weight,
-                 xOffset: jitter // Custom property for tooltip if needed, though category axis handles strings
+                 xOffset: jitter 
              });
         });
         
-        // Group by month to calculate min/max for background bars if needed, but scatter is enough for density
-        const ctx = document.getElementById('violinChart').getContext('2d');
-        // Chart.js Category Scale allows string X values. 
-        // We can't easily do true Violin density without external lib, so we use a Strip Plot style.
-        
-        // Need to manual grouping for X axis labels to work properly in Scatter or use 'category' scale
-        // But standard Scatter uses linear X. We swap to a Line chart with point style, no line, and jitter?
-        // Simpler approach: Use Bubble chart or simply Scatter with parsed X as time, but displayed as month?
-        // Let's stick to simple "Monthly Density" using Bar chart where bars are hidden and we just plot points?
-        // Or actually, just use the 'monthlyBoxPlotChart' we already have but add ALL points on top?
-        
-        // Let's implement a Scatter plot where X is Time, Y is Weight, but we modify visual to look like density.
-        // Actually, the prompt asks for "Density visualization".
-        // Let's use a "Horizontal Bar" that is actually a histogram of weights... 
-        // But the prompt says "Monthly weight distribution".
-        // Let's try a Scatter Chart where X is Month (Category) and we add random jitter to X in code?
-        // Chart.js Category scale doesn't support jitter easily.
-        
-        // Alternative: Use the existing logic but plot distinct points per month.
-        // We will map unique Months to integer indices 0, 1, 2...
         const uniqueMonths = [...new Set(scatterData.map(d => d.x))].sort();
         const mappedData = scatterData.map(d => {
             const idx = uniqueMonths.indexOf(d.x);
-            // Random jitter between -0.3 and 0.3
             const jitter = (Math.random() - 0.5) * 0.6;
             return { x: idx + jitter, y: d.y, month: d.x };
         });
         
+        const ctx = document.getElementById('violinChart').getContext('2d');
         const config = createChartConfig('scatter', {
             datasets: [{
                 label: '체중 분포 (밀도)',
@@ -3105,7 +3055,6 @@
                      type: 'linear',
                      ticks: {
                          callback: function(val, index) {
-                             // Show label only if it's close to integer
                              if (Math.abs(val - Math.round(val)) < 0.1 && uniqueMonths[Math.round(val)]) {
                                  return uniqueMonths[Math.round(val)];
                              }
@@ -3136,7 +3085,6 @@
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(now.getFullYear() - 1);
         
-        // Calculate deltas for color intensity
         const deltaMap = {};
         let maxDelta = 0;
         let minDelta = 0;
@@ -3148,21 +3096,8 @@
             if(diff < minDelta) minDelta = diff;
         }
 
-        // Generate Grid: 53 Columns (Weeks) x 7 Rows (Days)
-        // We need to align dates.
-        let html = '<div style="display:flex; flex-direction:column; gap:2px;">';
-        
-        // Labels row (Month) - Simplified logic
-        // ... (Skipping complex month alignment for brevity, just showing grid)
-        
-        // Grid
-        // We render column by column? No, standard HTML is row by row usually, or flex wrap.
-        // GitHub uses SVG or Canvas usually. Let's use CSS Grid.
-        
-        // Create a flat list of days from oneYearAgo to now
         const dayCells = [];
         let cursor = new Date(oneYearAgo);
-        // Align cursor to previous Sunday to start grid cleanly
         cursor.setDate(cursor.getDate() - cursor.getDay());
         
         const endDate = new Date();
@@ -3187,9 +3122,7 @@
             cursor.setDate(cursor.getDate() + 1);
         }
         
-        // GitHub style is columns of weeks. 
-        // We can use CSS Grid with `grid-auto-flow: column; grid-template-rows: repeat(7, 1fr);`
-        html = `<div style="
+        let html = `<div style="
             display: grid; 
             grid-template-rows: repeat(7, 1fr); 
             grid-auto-flow: column; 
@@ -3281,7 +3214,6 @@
             }
         });
 
-        // 헤더 및 그리드 구조는 innerHTML로 생성 (복잡한 구조)
         let html = `<div class="calendar-header">
             <button onclick="App.changeCalendarMonth(-1)">◀ 이전달</button>
             <div>
@@ -3341,12 +3273,9 @@
         renderHistoryTable();
     }
     
-    // --- [NEW] 새로운 테이블 렌더링 함수들 ---
     function renderResistanceTable() {
-        // 저항선(뚫기 힘든 곳) / 지지선(더 안 빠지는 곳) 분석
-        // Simple logic: Find integer zones where records stayed longest or bounced back most
-        const resistance = {}; // Bounced down from here (Local Max)
-        const support = {};    // Bounced up from here (Local Min)
+        const resistance = {}; 
+        const support = {};    
         
         for(let i=1; i<AppState.records.length-1; i++) {
             const prev = AppState.records[i-1].weight;
@@ -3355,12 +3284,10 @@
             
             const zone = Math.floor(curr);
             
-            // Peak (Resistance)
             if(curr > prev && curr > next) {
                 if(!resistance[zone]) resistance[zone] = 0;
                 resistance[zone]++;
             }
-            // Valley (Support)
             if(curr < prev && curr < next) {
                 if(!support[zone]) support[zone] = 0;
                 support[zone]++;
@@ -3381,7 +3308,6 @@
     }
 
     function renderWeekdayProbTable() {
-        // 요일별 증량 확률
         const gainCounts = [0,0,0,0,0,0,0];
         const totalCounts = [0,0,0,0,0,0,0];
         const dayNames = ['일','월','화','수','목','금','토'];
@@ -3415,7 +3341,6 @@
     function renderNewTables() {
         if(AppState.records.length < 2) return;
 
-        // Zone Duration Report
         const zones = {};
         for(let i=1; i<AppState.records.length; i++) {
             const z = Math.floor(AppState.records[i].weight / 10) * 10;
@@ -3432,7 +3357,6 @@
         });
         AppState.getEl('zoneReportTableBody').innerHTML = zRows.join('');
 
-        // Sprint Ranking
         const sprints = [];
         for(let i=0; i<AppState.records.length; i++) {
             const startW = AppState.records[i].weight;
@@ -3449,7 +3373,6 @@
         let sRows = top5.map((s, i) => `<tr><td>${i+1}위</td><td>${s.loss.toFixed(1)}kg</td><td>${s.days}일</td><td>${s.start}~${s.end}</td></tr>`);
         AppState.getEl('sprintTableBody').innerHTML = sRows.length ? sRows.join('') : '<tr><td colspan="4">데이터 부족</td></tr>';
 
-        // Day/Month Grades
         const dayWin = [0,0,0,0,0,0,0], dayTot = [0,0,0,0,0,0,0];
         const dayLoss = [0,0,0,0,0,0,0];
         const dayNames = ['일','월','화','수','목','금','토'];
@@ -3599,7 +3522,6 @@
         AppState.getEl('milestoneTableBody').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3">아직 기록된 마일스톤이 없습니다.</td></tr>';
     }
 
-    // [Fix] 템플릿 사용 (History Table)
     function renderHistoryTable() {
         const container = AppState.getEl('historyList');
         const template = DomUtil.getTemplate('template-history-row');
@@ -3677,7 +3599,6 @@
             gyroDrop: false,
             weekendSniper: false,
             piMiracle: false,
-            // [NEW]
             palindrome: false,
             anniversary: false
         };
