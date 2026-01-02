@@ -1750,12 +1750,12 @@
              htmlLines.push(`<li class="insight-item"><span class="insight-label">🗓️ 마의 ${nextMonth}월 예보:</span> "곧 <strong>${nextMonth}월</strong>입니다. 데이터상 ${nextMonth}월마다 평균 <strong>${monthlyGains[nextMonth].toFixed(1)}kg</strong> 증량하는 패턴이 있습니다. 대비하세요!"</li>`);
         }
 
-        // 34. 존버(Zone) 승리 예측 (Zone Victory)
+        // 34. 버티기 (Zone) 승리 예측 (Zone Victory)
         const currentZone = Math.floor(s.current/10)*10;
         const targetZone = currentZone - 10;
         if(zones[currentZone]) { 
              const avgDays = zones[currentZone].reduce((a,b)=>a+Math.abs(b),0)/zones[currentZone].length * 10; // Simple approximation
-             htmlLines.push(`<li class="insight-item"><span class="insight-label">🧱 존버(Zone) 승리 예측:</span> " 보통 앞자리를 바꾸는 데 평균 <strong>${Math.round(avgDays)}일</strong> 정도가 걸립니다. 현재 ${currentZone}kg 진입까지 조금만 더 버티세요!"</li>`);
+             htmlLines.push(`<li class="insight-item"><span class="insight-label">🧱 버티기 (Zone) 승리 예측:</span> " 보통 앞자리를 바꾸는 데 평균 <strong>${Math.round(avgDays)}일</strong> 정도가 걸립니다. 현재 ${currentZone}kg 진입까지 조금만 더 버티세요!"</li>`);
         }
 
         // 35. 과거의 영광 비교 (Past Glory)
