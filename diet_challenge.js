@@ -1750,14 +1750,36 @@
              htmlLines.push(`<li class="insight-item"><span class="insight-label">🗓️ 마의 ${nextMonth}월 예보:</span> "곧 <strong>${nextMonth}월</strong>입니다. 데이터상 ${nextMonth}월마다 평균 <strong>${monthlyGains[nextMonth].toFixed(1)}kg</strong> 증량하는 패턴이 있습니다. 대비하세요!"</li>`);
         }
 
-        // 34. 버티기 (Zone) 승리 예측 (Zone Victory)
-        const currentZone = Math.floor(s.current/10)*10;
-        const targetZone = currentZone - 10;
-        if(zones[currentZone]) { 
-             const avgDays = zones[currentZone].reduce((a,b)=>a+Math.abs(b),0)/zones[currentZone].length * 10; // Simple approximation
-             htmlLines.push(`<li class="insight-item"><span class="insight-label">🧱 버티기 (Zone) 승리 예측:</span> " 보통 앞자리를 바꾸는 데 평균 <strong>${Math.round(avgDays)}일</strong> 정도가 걸립니다. 현재 ${currentZone}kg 진입까지 조금만 더 버티세요!"</li>`);
-        }
+		// 34. 버티기 (Zone) 승리 예측 (Zone Victory) - 수정됨
+        const currentZoneFloor = Math.floor(s.current / 10) * 10; // 현재 앞자리 (예: 78.5 -> 70)
+        const distToNextZone = s.current - currentZoneFloor; // 남은 거리 (예: 8.5kg)
 
+        // 최근 30일간의 감량 속도 계산
+        const d30 = new Date(); 
+        d30.setDate(d30.getDate() - 30);
+        const recentRecsForZone = AppState.records.filter(r => DateUtil.parse(r.date) >= d30);
+
+        if (distToNextZone > 0 && recentRecsForZone.length > 5) {
+             const firstR = recentRecsForZone[0];
+             const lastR = recentRecsForZone[recentRecsForZone.length - 1];
+             const periodDays = DateUtil.daysBetween(DateUtil.parse(firstR.date), DateUtil.parse(lastR.date));
+             const weightLoss = firstR.weight - lastR.weight;
+
+             // 감량 중일 때만 예측
+             if (weightLoss > 0 && periodDays > 0) {
+                 const dailyRate = weightLoss / periodDays; // 일일 감량 속도
+                 const predictedDays = distToNextZone / dailyRate; // 남은 거리 / 속도
+
+                 // 너무 비현실적인 수치(3년 이상 등)는 제외
+                 if(predictedDays < 1000) {
+                     htmlLines.push(`<li class="insight-item"><span class="insight-label">🧱 버티기 (Zone) 승리 예측:</span> "현재 페이스(${dailyRate.toFixed(2)}kg/일)라면 앞자리를 바꾸는 데 약 <strong>${Math.round(predictedDays)}일</strong>이 소요될 것으로 보입니다. ${currentZoneFloor}kg 진입까지 화이팅!"</li>`);
+                 }
+             } else if (weightLoss <= 0) {
+                 // 증량 중이거나 변화 없을 때
+                 htmlLines.push(`<li class="insight-item"><span class="insight-label">🧱 버티기 (Zone) 승리 예측:</span> "현재 앞자리를 바꾸기 위해 ${distToNextZone.toFixed(1)}kg 감량이 필요합니다. 다시 감량 추세를 만들어봅시다!"</li>`);
+             }
+        }
+		
         // 35. 과거의 영광 비교 (Past Glory)
         if(AppState.records.length > 60) {
              const mLoss = {};
