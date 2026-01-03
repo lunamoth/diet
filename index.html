@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 다이어트 챌린지 (Ver 3.0.74)</title>
+    <title>💪 다이어트 챌린지 (Ver 3.0.75)</title>
     
     <!-- 필수 라이브러리: Chart.js 및 Date Adapter (defer 추가로 로딩 최적화) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -81,6 +81,33 @@
         }
 
         .container { max-width: 1500px; margin: 0 auto; }
+
+        /* [추가] 상단 공지 배너 스타일 */
+        .notice-banner {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .notice-banner a {
+            color: #533f03;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+        body.dark-mode .notice-banner {
+            background-color: #4a3b00;
+            color: #ffeb3b;
+            border-color: #665200;
+        }
+        body.dark-mode .notice-banner a {
+            color: #ffffff;
+        }
 
         /* 헤더 */
         header {
@@ -358,6 +385,14 @@
 <body>
 
 <div class="container">
+    <!-- 서비스 종료 및 통합 안내 배너 추가 -->
+    <div class="notice-banner">
+        <strong>⚠️ 중요 공지</strong><br>
+        2026년 1월 3일 부로 다이어트 챌린지는 <strong>MothNote</strong>의 서브 모듈이 되었습니다.<br>
+        단독 웹앱은 더 이상 업데이트되지 않습니다. MothNote의 모듈로 계속 업데이트 예정이니 MothNote를 설치해서 사용해주시길 부탁드립니다.<br>
+        👉 MothNote 다운로드: <a href="https://github.com/lunamoth/MothNote" target="_blank">https://github.com/lunamoth/MothNote</a>
+    </div>
+
     <header>
         <button class="theme-toggle" onclick="App.toggleDarkMode()">🌓 다크모드</button>
         <div style="font-size: 3rem; margin-bottom: 10px;">🏃‍♂️🥗💧</div>
