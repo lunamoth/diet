@@ -1,3 +1,7 @@
+> [!CAUTION]
+2026년 1월 3일 부로 다이어트 챌린지는 MothNote 의 서브 모듈이 되었습니다. 단독 웹앱은 더 이상 업데이트되지 않습니다. MothNote 의 모듈 계속 업데이트 예정이니 MothNote 를 설치해서 사용해주시길 부탁드립니다. MothNote 는 https://github.com/lunamoth/MothNote 에서 받으실 수 있습니다. 
+
+
 # 💪 다이어트 챌린지 (Diet Challenge)
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Status](https://img.shields.io/badge/status-Active-success)
